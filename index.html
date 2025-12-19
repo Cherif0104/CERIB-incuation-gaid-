@@ -90,13 +90,43 @@
     <script type="module">
         // Imports des modules
         import { MISSION_1_CONFIG } from './src/missions/mission1-probleme.js';
-        import {
-            validateComprehensionTest,
-            validateProjectForm,
+        import { MISSION_2_CONFIG } from './src/missions/mission2-solution.js';
+        import { MISSION_3_CONFIG } from './src/missions/mission3-valeur.js';
+        import { MISSION_4_CONFIG } from './src/missions/mission4-modele.js';
+        import { MISSION_5_CONFIG } from './src/missions/mission5-prototype.js';
+        import { MISSION_6_CONFIG } from './src/missions/mission6-identite.js';
+        import { 
+            validateComprehensionTest as validateM1Quiz,
+            validateProjectForm as validateM1Form,
             generateProblemSynthesis,
             generatePersonalizedFeedback,
             calculateProblemQualityScore
         } from './src/missions/ai-logic/mission1-ai-validator.js';
+        import {
+            validateComprehensionTest as validateM2Quiz,
+            validateProjectForm as validateM2Form,
+            generateSolutionSynthesis
+        } from './src/missions/ai-logic/mission2-ai-validator.js';
+        import {
+            validateComprehensionTest as validateM3Quiz,
+            validateProjectForm as validateM3Form,
+            generateValeurSynthesis
+        } from './src/missions/ai-logic/mission3-ai-validator.js';
+        import {
+            validateComprehensionTest as validateM4Quiz,
+            validateProjectForm as validateM4Form,
+            generateModeleSynthesis
+        } from './src/missions/ai-logic/mission4-ai-validator.js';
+        import {
+            validateComprehensionTest as validateM5Quiz,
+            validateProjectForm as validateM5Form,
+            generatePrototypeSynthesis
+        } from './src/missions/ai-logic/mission5-ai-validator.js';
+        import {
+            validateComprehensionTest as validateM6Quiz,
+            validateProjectForm as validateM6Form,
+            generateIdentiteSynthesis
+        } from './src/missions/ai-logic/mission6-ai-validator.js';
         import { 
             DIAGNOSTIC_INITIAL_CONFIG, 
             calculateDiagnosticResult,
@@ -381,6 +411,8 @@
         function renderModule(module) {
             if (module.id === 1) {
                 renderModule1();
+            } else if (module.id >= 2 && module.id <= 6) {
+                renderGenericMission(module.id);
             } else {
                 document.getElementById('header-title').innerText = module.title;
                 const container = document.getElementById('app-content');
@@ -402,6 +434,461 @@
                 `;
             }
         }
+
+        // Fonction générique pour rendre les missions 2 à 6
+        function renderGenericMission(missionId) {
+            const missionConfigs = {
+                2: MISSION_2_CONFIG,
+                3: MISSION_3_CONFIG,
+                4: MISSION_4_CONFIG,
+                5: MISSION_5_CONFIG,
+                6: MISSION_6_CONFIG
+            };
+            
+            const validators = {
+                2: { quiz: validateM2Quiz, form: validateM2Form, synthesis: generateSolutionSynthesis },
+                3: { quiz: validateM3Quiz, form: validateM3Form, synthesis: generateValeurSynthesis },
+                4: { quiz: validateM4Quiz, form: validateM4Form, synthesis: generateModeleSynthesis },
+                5: { quiz: validateM5Quiz, form: validateM5Form, synthesis: generatePrototypeSynthesis },
+                6: { quiz: validateM6Quiz, form: validateM6Form, synthesis: generateIdentiteSynthesis }
+            };
+
+            const config = missionConfigs[missionId];
+            const validator = validators[missionId];
+            if (!config) return;
+
+            document.getElementById('header-title').innerText = config.metadata.BADGE;
+            
+            // Initialiser la progression si nécessaire
+            if (!state.progress[`m${missionId}`]) {
+                state.progress[`m${missionId}`] = {
+                    unlocked: false,
+                    theoryDone: false,
+                    quizScore: 0,
+                    quizPassed: false,
+                    formDone: false
+                };
+            }
+
+            const progress = state.progress[`m${missionId}`];
+            
+            // Déterminer l'étape actuelle
+            let currentStep = 'theory';
+            if (progress.theoryDone && !progress.quizPassed) {
+                currentStep = 'quiz';
+            } else if (progress.quizPassed && !progress.formDone) {
+                currentStep = 'form';
+            } else if (progress.formDone) {
+                currentStep = 'success';
+            }
+
+            state.step = currentStep;
+            state.activeModuleId = missionId;
+
+            // Rendre selon l'étape
+            if (currentStep === 'theory') {
+                renderGenericTheory(missionId, config);
+            } else if (currentStep === 'quiz') {
+                renderGenericQuiz(missionId, config, validator.quiz);
+            } else if (currentStep === 'form') {
+                renderGenericForm(missionId, config);
+            } else if (currentStep === 'success') {
+                renderGenericSuccess(missionId, config, validator);
+            }
+        }
+
+        // ============================================
+        // FONCTIONS GÉNÉRIQUES POUR MISSIONS 2-6
+        // ============================================
+
+        function renderGenericTheory(missionId, config) {
+            document.getElementById('header-title').innerText = config.metadata.BADGE;
+            const container = document.getElementById('app-content');
+            const sections = config.immersion.content.sections;
+            
+            let contentHtml = sections.map((section, idx) => `
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">${section.title}</h3>
+                    <div class="prose prose-slate max-w-none text-slate-700 whitespace-pre-line">${section.content}</div>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="max-w-4xl mx-auto fade-in">
+                    <div class="bg-white rounded-xl shadow-lg border border-slate-200 p-8 mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-4">${config.immersion.title}</h2>
+                        <p class="text-slate-500 mb-6">Temps estimé : ${config.immersion.estimatedTime}</p>
+                        ${config.immersion.videoID ? `
+                            <div class="mb-6">
+                                <iframe width="100%" height="400" src="https://www.youtube.com/embed/${config.immersion.videoID}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                            </div>
+                        ` : ''}
+                        <div class="space-y-6">
+                            ${contentHtml}
+                        </div>
+                        <div class="mt-8 pt-6 border-t border-slate-200">
+                            <button onclick="window.finishGenericTheory(${missionId})" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700">
+                                J'ai terminé l'immersion
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGenericQuiz(missionId, config, validator) {
+            document.getElementById('header-title').innerText = config.metadata.BADGE;
+            const container = document.getElementById('app-content');
+            const questions = config.comprehensionTest.questions;
+            
+            let quizHtml = `
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <div class="mb-6">
+                        <h3 class="text-xl font-bold mb-2">${config.comprehensionTest.title}</h3>
+                        <p class="text-sm text-slate-500">Vous devez obtenir au moins ${config.comprehensionTest.passingScore}% pour débloquer l'étape suivante.</p>
+                    </div>
+                    <form id="quiz-form-${missionId}" class="space-y-6">
+            `;
+
+            questions.forEach((item) => {
+                quizHtml += `
+                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                        <p class="font-medium text-slate-900 mb-3">${item.question}</p>
+                        <div class="space-y-2 pl-4">
+                `;
+                
+                if (item.type === 'qcm' && item.options) {
+                    item.options.forEach((opt, optIdx) => {
+                        quizHtml += `
+                            <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white hover:shadow-sm transition">
+                                <input type="radio" name="${item.id}" value="${optIdx}" class="w-4 h-4 text-blue-600 accent-blue-600">
+                                <span class="text-sm text-slate-700">${opt}</span>
+                            </label>
+                        `;
+                    });
+                } else if (item.type === 'true_false') {
+                    quizHtml += `
+                        <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white hover:shadow-sm transition">
+                            <input type="radio" name="${item.id}" value="true" class="w-4 h-4 text-blue-600 accent-blue-600">
+                            <span class="text-sm text-slate-700">Vrai</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white hover:shadow-sm transition">
+                            <input type="radio" name="${item.id}" value="false" class="w-4 h-4 text-blue-600 accent-blue-600">
+                            <span class="text-sm text-slate-700">Faux</span>
+                        </label>
+                    `;
+                } else {
+                    quizHtml += `
+                        <textarea name="${item.id}" rows="3" placeholder="Votre réponse..." class="w-full rounded border-slate-300 p-2 border"></textarea>
+                    `;
+                }
+                
+                quizHtml += `</div></div>`;
+            });
+
+            quizHtml += `
+                    <div class="pt-4 flex justify-end">
+                        <button type="button" onclick="window.checkGenericQuiz(${missionId})" class="bg-slate-900 text-white px-8 py-3 rounded-lg font-bold hover:bg-slate-800">
+                            Valider mes réponses
+                        </button>
+                    </div>
+                </form>
+                <div id="quiz-result-${missionId}" class="hidden mt-6 p-4 rounded-lg"></div>
+            </div>`;
+
+            container.innerHTML = quizHtml;
+        }
+
+        function renderGenericForm(missionId, config) {
+            document.getElementById('header-title').innerText = config.metadata.BADGE;
+            const container = document.getElementById('app-content');
+            const fields = config.projectForm.fields;
+            const existingData = state.formData[`m${missionId}`] || {};
+            
+            let fieldsHTML = '';
+            fields.forEach((field) => {
+                const value = existingData[field.fieldName] || (field.type === 'range' ? field.defaultValue : '');
+                
+                fieldsHTML += `
+                    <div class="form-field">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            ${field.label} ${field.required ? '<span class="text-red-500">*</span>' : ''}
+                        </label>
+                        ${field.type === 'textarea' ? `
+                            <textarea 
+                                name="${field.fieldName}" 
+                                ${field.required ? 'required' : ''}
+                                ${field.minLength ? `minlength="${field.minLength}"` : ''}
+                                placeholder="${field.placeholder || ''}"
+                                rows="4"
+                                class="w-full rounded border-slate-300 p-2 border focus:ring-2 focus:ring-blue-500 outline-none"
+                            >${value}</textarea>
+                        ` : field.type === 'range' ? `
+                            <div class="range-input">
+                                <input 
+                                    type="range" 
+                                    name="${field.fieldName}"
+                                    min="${field.min}"
+                                    max="${field.max}"
+                                    value="${value}"
+                                    oninput="document.getElementById('range-${field.fieldName}').innerText = this.value"
+                                    ${field.required ? 'required' : ''}
+                                    class="w-full"
+                                    style="height: 8px;"
+                                >
+                                <div class="flex justify-between text-xs text-slate-500 mt-1">
+                                    <span>${field.min}</span>
+                                    <span class="font-bold text-blue-600" id="range-${field.fieldName}">${value}</span>
+                                    <span>${field.max}</span>
+                                </div>
+                            </div>
+                        ` : `
+                            <input 
+                                type="${field.type}"
+                                name="${field.fieldName}"
+                                value="${value}"
+                                ${field.required ? 'required' : ''}
+                                ${field.minLength ? `minlength="${field.minLength}"` : ''}
+                                placeholder="${field.placeholder || ''}"
+                                class="w-full rounded border-slate-300 p-2 border focus:ring-2 focus:ring-blue-500 outline-none"
+                            >
+                        `}
+                        ${field.validation && field.validation.rules ? `
+                            <small class="text-xs text-slate-500 mt-1">${field.validation.rules[0]}</small>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = `
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                    <div class="mb-8 border-b pb-4">
+                        <h3 class="text-2xl font-bold text-slate-800">${config.projectForm.title}</h3>
+                        <p class="text-slate-500 mt-2">${config.projectForm.description}</p>
+                    </div>
+
+                    <form id="project-form-${missionId}" class="space-y-8" onsubmit="event.preventDefault(); window.submitGenericForm(${missionId});">
+                        ${fieldsHTML}
+                        <div class="pt-6 flex justify-end">
+                            <button type="submit" class="bg-blue-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-700 shadow-lg transform transition hover:-translate-y-1">
+                                Valider
+                            </button>
+                        </div>
+                    </form>
+                    <div id="form-validation-result-${missionId}" class="hidden mt-6"></div>
+                </div>
+            `;
+        }
+
+        function renderGenericSuccess(missionId, config, validator) {
+            document.getElementById('header-title').innerText = config.metadata.BADGE;
+            const container = document.getElementById('app-content');
+            const formData = state.formData[`m${missionId}`] || {};
+            const synthesis = validator.synthesis ? validator.synthesis(formData) : config.capitalization.feedback.synthesis;
+            
+            container.innerHTML = `
+                <div class="max-w-4xl mx-auto fade-in text-center">
+                    <div class="bg-green-50 border border-green-200 rounded-xl p-8 mb-8">
+                        <div class="text-6xl mb-4">${config.metadata.BADGE_ICON}</div>
+                        <h2 class="text-3xl font-bold text-green-800 mb-2">Félicitations !</h2>
+                        <p class="text-green-700 mb-4">${config.capitalization.feedback.success}</p>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow max-w-lg mx-auto mb-8 border border-slate-100">
+                        <h4 class="font-bold text-slate-800 mb-2">Récompenses obtenues :</h4>
+                        <div class="flex items-center justify-center gap-4 flex-wrap">
+                            <div class="text-center">
+                                <div class="text-3xl mb-1">${config.metadata.BADGE_ICON}</div>
+                                <div class="text-sm font-medium">${config.metadata.BADGE}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-3xl font-bold text-blue-600 mb-1">+${config.metadata.XP_TOTAL}</div>
+                                <div class="text-sm font-medium">XP</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-6 rounded-lg shadow max-w-2xl mx-auto mb-8 border border-slate-200 text-left">
+                        <h4 class="font-bold text-slate-800 mb-3">Synthèse :</h4>
+                        <p class="text-slate-700 whitespace-pre-line">${synthesis}</p>
+                    </div>
+
+                    <div class="flex justify-center gap-4 flex-wrap">
+                        <button onclick="window.navigateTo(null)" class="px-6 py-3 rounded-lg border border-slate-300 font-medium hover:bg-slate-50 text-slate-700">
+                            Retour au Tableau de bord
+                        </button>
+                        ${config.capitalization.nextMission ? `
+                            <button onclick="window.navigateTo(${missionId + 1})" class="px-6 py-3 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg">
+                                Lancer la Mission ${missionId + 1} →
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Fonctions globales pour les missions génériques
+        window.finishGenericTheory = function(missionId) {
+            if (!state.progress[`m${missionId}`]) {
+                state.progress[`m${missionId}`] = {
+                    unlocked: true,
+                    theoryDone: false,
+                    quizScore: 0,
+                    quizPassed: false,
+                    formDone: false
+                };
+            }
+            state.progress[`m${missionId}`].theoryDone = true;
+            updateXP(50);
+            saveProgress();
+            renderGenericMission(missionId);
+        };
+
+        window.checkGenericQuiz = function(missionId) {
+            const missionConfigs = {
+                2: MISSION_2_CONFIG,
+                3: MISSION_3_CONFIG,
+                4: MISSION_4_CONFIG,
+                5: MISSION_5_CONFIG,
+                6: MISSION_6_CONFIG
+            };
+            const validators = {
+                2: validateM2Quiz,
+                3: validateM3Quiz,
+                4: validateM4Quiz,
+                5: validateM5Quiz,
+                6: validateM6Quiz
+            };
+            
+            const config = missionConfigs[missionId];
+            const validator = validators[missionId];
+            const form = document.getElementById(`quiz-form-${missionId}`);
+            const formData = new FormData(form);
+            
+            const answers = {};
+            config.comprehensionTest.questions.forEach(q => {
+                const value = formData.get(q.id);
+                if (value !== null) answers[q.id] = value;
+            });
+
+            const result = validator(answers);
+            if (!state.progress[`m${missionId}`]) {
+                state.progress[`m${missionId}`] = {
+                    unlocked: true,
+                    theoryDone: true,
+                    quizScore: 0,
+                    quizPassed: false,
+                    formDone: false
+                };
+            }
+            
+            state.progress[`m${missionId}`].quizScore = result.percentage;
+            state.progress[`m${missionId}`].quizPassed = result.passed;
+
+            const resultDiv = document.getElementById(`quiz-result-${missionId}`);
+            resultDiv.classList.remove('hidden');
+            
+            if (result.passed) {
+                updateXP(100);
+                resultDiv.className = 'mt-6 p-4 rounded-lg bg-green-50 border border-green-200';
+                resultDiv.innerHTML = `
+                    <p class="font-bold text-green-800">✅ ${result.feedback}</p>
+                    <p class="text-green-700">Score : ${result.score}/${result.total} (${result.percentage}%)</p>
+                    <button onclick="window.proceedToGenericForm(${missionId})" class="mt-4 bg-green-600 text-white px-6 py-2 rounded shadow hover:bg-green-700">
+                        Continuer vers l'étape suivante
+                    </button>
+                `;
+            } else {
+                resultDiv.className = 'mt-6 p-4 rounded-lg bg-red-50 border border-red-200';
+                resultDiv.innerHTML = `
+                    <p class="font-bold text-red-800">❌ ${result.feedback}</p>
+                    <p class="text-red-700">Score : ${result.score}/${result.total} (${result.percentage}%)</p>
+                    ${result.corrections.length > 0 ? `
+                        <div class="mt-4 text-left">
+                            <p class="font-semibold mb-2">Corrections :</p>
+                            ${result.corrections.map(c => `
+                                <div class="mb-2 text-sm">
+                                    <p><strong>${c.question}</strong></p>
+                                    <p>💡 ${c.explanation}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                `;
+            }
+            saveProgress();
+        };
+
+        window.proceedToGenericForm = function(missionId) {
+            renderGenericMission(missionId);
+        };
+
+        window.submitGenericForm = function(missionId) {
+            const missionConfigs = {
+                2: MISSION_2_CONFIG,
+                3: MISSION_3_CONFIG,
+                4: MISSION_4_CONFIG,
+                5: MISSION_5_CONFIG,
+                6: MISSION_6_CONFIG
+            };
+            const validators = {
+                2: validateM2Form,
+                3: validateM3Form,
+                4: validateM4Form,
+                5: validateM5Form,
+                6: validateM6Form
+            };
+            
+            const config = missionConfigs[missionId];
+            const validator = validators[missionId];
+            const form = document.getElementById(`project-form-${missionId}`);
+            const formData = new FormData(form);
+            
+            const data = {};
+            for (const [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+
+            const validation = validator(data);
+            const resultDiv = document.getElementById(`form-validation-result-${missionId}`);
+            resultDiv.classList.remove('hidden');
+
+            if (validation.valid) {
+                state.formData[`m${missionId}`] = data;
+                if (!state.progress[`m${missionId}`]) {
+                    state.progress[`m${missionId}`] = {
+                        unlocked: true,
+                        theoryDone: true,
+                        quizPassed: true,
+                        formDone: false
+                    };
+                }
+                state.progress[`m${missionId}`].formDone = true;
+                
+                // Débloquer la mission suivante
+                if (config.capitalization.nextMission && missionId < 6) {
+                    if (!state.progress[`m${missionId + 1}`]) {
+                        state.progress[`m${missionId + 1}`] = {
+                            unlocked: true,
+                            theoryDone: false,
+                            quizPassed: false,
+                            formDone: false
+                        };
+                    }
+                }
+                
+                updateXP(config.projectForm.xpReward);
+                saveProgress();
+                renderGenericMission(missionId);
+            } else {
+                resultDiv.className = 'mt-6 p-4 rounded-lg bg-red-50 border border-red-200';
+                let errorsHtml = validation.errors.map(err => `<p class="text-red-700">• ${err}</p>`).join('');
+                resultDiv.innerHTML = `
+                    <p class="font-bold text-red-800">⚠️ Veuillez corriger les erreurs suivantes :</p>
+                    ${errorsHtml}
+                `;
+            }
+        };
 
         // ============================================
         // MISSION 1 : LE VRAI PROBLÈME
@@ -571,8 +1058,9 @@
             
             const answers = {};
             MISSION_1_CONFIG.comprehensionTest.questions.forEach(q => {
-                const value = formData.get(`q${q.id}`);
-                if (value !== null) answers[`q${q.id}`] = value;
+                // q.id est déjà 'q1', 'q2', etc., donc on l'utilise directement
+                const value = formData.get(q.id);
+                if (value !== null) answers[q.id] = value;
             });
 
             const result = validateComprehensionTest(answers);
@@ -1715,6 +2203,18 @@
         }
 
         function updateModulesForSegment(segment) {
+            // Initialiser toutes les missions si nécessaire
+            for (let i = 1; i <= 6; i++) {
+                if (!state.progress[`m${i}`]) {
+                    state.progress[`m${i}`] = {
+                        unlocked: false,
+                        theoryDone: false,
+                        quizScore: 0,
+                        quizPassed: false,
+                        formDone: false
+                    };
+                }
+            }
             // Adapter les modules selon le segment identifié par le diagnostic
             if (segment === 'ideateur') {
                 // Parcours Idéateur : débloquer Mission 1 par défaut

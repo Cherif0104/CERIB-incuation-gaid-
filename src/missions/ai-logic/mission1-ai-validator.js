@@ -16,7 +16,8 @@ export function validateComprehensionTest(answers) {
   const corrections = [];
 
   questions.forEach((q, index) => {
-    const userAnswer = answers[`q${index + 1}`] || answers[q.id];
+    // Chercher la réponse avec l'ID de la question (q.id = 'q1', 'q2', etc.)
+    const userAnswer = answers[q.id] || answers[`q${index + 1}`];
     let isCorrect = false;
 
     switch (q.type) {
