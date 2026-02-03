@@ -1,0 +1,21 @@
+# Environnement et secrets (ne jamais committer les clés Supabase)
+.env
+.env.local
+.env.*.local
+
+# Dépendances
+node_modules/
+
+# Build
+dist/
+build/
+
+# Logs et cache
+*.log
+.cache/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

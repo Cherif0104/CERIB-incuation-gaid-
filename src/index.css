@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+/* Police chargée via <link> dans index.html pour éviter conflit @import / Tailwind */
+
+/* ===== Charte graphique CERIP — dérivée du logo =====
+   Logo : feuille centrale + arc = vert lime ; feuilles latérales + arc = magenta ;
+   texte CERIP = vert forêt ; contours = noir.
+   Toutes les couleurs de l’interface dérivent de cette palette. */
+@theme {
+  /* Vert lime (feuille centrale, arc intérieur) — accent principal, CTA */
+  --color-cerip-lime: #8AC44B;
+  --color-cerip-lime-dark: #6fa338;
+  --color-cerip-lime-light: #e8f5e0;
+  /* Magenta / fuchsia (feuilles latérales, arc extérieur) — accent secondaire, liens */
+  --color-cerip-magenta: #BF2B8F;
+  --color-cerip-magenta-dark: #9a2273;
+  --color-cerip-magenta-light: #fce4f5;
+  /* Vert forêt (texte CERIP) — structure, titres, ancrage */
+  --color-cerip-forest: #1e5c3a;
+  --color-cerip-forest-mid: #2E7D4E;
+  --color-cerip-forest-light: #e6f2eb;
+  /* Noir (contours logo) — panneaux sombres, texte */
+  --color-cerip-ink: #0f0f0f;
+  --color-cerip-ink-light: #1a1a1a;
+}
+
+/* Typographie : Plus Jakarta Sans (voir index.html <link>) */
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+body {
+  background: var(--color-cerip-forest-light);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Panneau sombre : dégradé forêt → noir (couleurs logo) */
+.cerip-panel-dark {
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 35%, #1e3d2a 100%);
+}
+.cerip-panel-shine {
+  background: linear-gradient(120deg, transparent 0%, rgba(138, 196, 75, 0.04) 50%, transparent 100%);
+}
+
+/* Animation barre de chargement (overlay) — durée standard */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+.animate-loading-bar {
+  animation: loading-bar 0.9s ease-in-out infinite;
+}
+
+/* Spinner / effet de chargement (cercle tournant) */
+@keyframes overlay-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-overlay-spin {
+  animation: overlay-spin 0.8s linear infinite;
+}
+
+/* Points de chargement (overlay) — pulse discret */
+@keyframes overlay-dot-pulse {
+  0%, 80%, 100% { opacity: 0.5; transform: scale(0.9); }
+  40% { opacity: 1; transform: scale(1); }
+}
+.overlay-dot {
+  animation: overlay-dot-pulse 1.2s ease-in-out infinite;
+}
+.overlay-dot-2 { animation-delay: 0.15s; }
+.overlay-dot-3 { animation-delay: 0.3s; }
+
+/* Motif fond overlay (points discrets) */
+.overlay-pattern {
+  background-image: radial-gradient(rgba(138, 196, 75, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Halo léger autour du lion (overlay) */
+.overlay-lion-ring {
+  animation: overlay-lion-glow 2.5s ease-in-out infinite;
+}
+@keyframes overlay-lion-glow {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(138, 196, 75, 0.2)); }
+  50% { filter: drop-shadow(0 0 28px rgba(138, 196, 75, 0.35)); }
+}
+
+/* ===== Dashboard — cartes KPI et apparition stagger ===== */
+@keyframes dashboard-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dashboard-card {
+  animation: dashboard-card-in 0.4s ease-out forwards;
+}
+.progress-ring-stroke {
+  transform-origin: center;
+}
