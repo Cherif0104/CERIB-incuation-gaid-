@@ -83,9 +83,6 @@ function App() {
     };
 
     init();
-    return () => {
-      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
-    };
 
     const {
       data: { subscription },
@@ -122,6 +119,7 @@ function App() {
     });
 
     return () => {
+      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
       subscription.unsubscribe();
     };
   }, []);
@@ -136,6 +134,32 @@ function App() {
     if (p.role === 'CERTIFICATEUR') return '/certificateur';
     return '/login';
   }, []);
+
+  /** Charge le profil (staff ou incubé) à partir de la session courante. */
+  const loadProfileFromSession = useCallback(async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return null;
+    const { data: staffProfile } = await supabase
+      .from('staff_users')
+      .select('*')
+      .eq('auth_user_id', currentSession.user.id)
+      .maybeSingle();
+    if (staffProfile) return { ...staffProfile, kind: 'staff' };
+    const { data: incubeProfile } = await supabase
+      .from('incubes')
+      .select('*')
+      .eq('auth_user_id', currentSession.user.id)
+      .maybeSingle();
+    if (incubeProfile) return { ...incubeProfile, kind: 'incube' };
+    return null;
+  }, []);
+
+  /** Appelée après un login réussi : charge le profil, met à jour l'état, retourne le chemin de redirection. */
+  const onLoginSuccess = useCallback(async () => {
+    const p = await loadProfileFromSession();
+    setProfile(p);
+    return getDashboardPath(p);
+  }, [loadProfileFromSession, getDashboardPath]);
 
   const refetchProfile = useCallback(async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
