@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import MetricCard from '../components/MetricCard';
@@ -14,6 +14,15 @@ const STATUS_LABELS = {
   CERTIFIED: 'Certifié',
   FAILED: 'Non certifié',
 };
+
+/** Note minimale (en %) requise au quiz pour débloquer le module suivant. Utilisé si payload.required_score_pct est absent. */
+const DEFAULT_REQUIRED_SCORE_PCT = 70;
+
+function getRequiredScorePct(module) {
+  if (!module?.payload || typeof module.payload !== 'object') return DEFAULT_REQUIRED_SCORE_PCT;
+  const v = module.payload.required_score_pct;
+  return typeof v === 'number' ? v : DEFAULT_REQUIRED_SCORE_PCT;
+}
 
 /** Niveau gamifié : Lionceau → En chemin → Gaindé */
 function getNiveauBadge(profile) {
@@ -58,7 +67,7 @@ function IncubePortal({ profile, onRefreshProfile }) {
     const load = async () => {
       const { data: mods } = await supabase
         .from('learning_modules')
-        .select('id, title, description, sort_order, type')
+        .select('id, title, description, sort_order, type, payload')
         .or(`organisation_id.eq.${profile.organisation_id},organisation_id.is.null`)
         .eq('parcours_phase', profile.current_parcours)
         .order('sort_order');
@@ -210,13 +219,28 @@ function IncubePortal({ profile, onRefreshProfile }) {
     navigate('/login', { replace: true });
   };
 
+  /** Pour chaque module : débloqué si premier OU (précédent complété ET si quiz score >= requis). */
+  const modulesWithStatus = useMemo(() => {
+    return modules.map((m, i) => {
+      if (i === 0) return { ...m, unlocked: true };
+      const prev = modules[i - 1];
+      const prevProg = progress[prev?.id];
+      const prevDone = !!prevProg?.completed_at;
+      const prevRequired = prev?.type === 'quiz' ? getRequiredScorePct(prev) : 0;
+      const prevScoreOk = prev?.type !== 'quiz' || (prevProg?.score_pct != null && Number(prevProg.score_pct) >= prevRequired);
+      const unlocked = prevDone && prevScoreOk;
+      return { ...m, unlocked };
+    });
+  }, [modules, progress]);
+
+  const nextUnlockedModule = modulesWithStatus.find((m) => m.unlocked && !progress[m.id]?.completed_at);
   const p1 = profile?.p1_score != null ? Number(profile.p1_score) : null;
   const p2 = profile?.p2_score != null ? Number(profile.p2_score) : null;
   const statusLabel = STATUS_LABELS[profile?.global_status] ?? profile?.global_status;
   const niveau = getNiveauBadge(profile);
   const modulesDone = Object.values(progress).filter((p) => p?.completed_at).length;
   const modulesTotal = modules.length;
-  const nextModule = modules.find((m) => !progress[m.id]?.completed_at);
+  const nextModule = nextUnlockedModule;
   const prochaineEtape = examEligible.canLaunch
     ? { type: 'exam', label: "Lancer l'examen de certification", cta: "Lancer l'examen" }
     : profile?.global_status === 'EXAM_IN_PROGRESS'
@@ -264,6 +288,26 @@ function IncubePortal({ profile, onRefreshProfile }) {
             {niveau.label}
           </span>
         </div>
+
+        {nextUnlockedModule && (
+          <div className="bg-gradient-to-br from-cerip-forest/5 to-cerip-lime/10 rounded-2xl border border-cerip-lime/20 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-cerip-forest/70 mb-1">
+                {modulesDone === 0 ? 'Démarrer le parcours' : 'Reprendre où j\'en étais'}
+              </p>
+              <p className="text-sm font-medium text-cerip-forest">
+                {modulesDone === 0 ? 'Commencez par le premier module ci-dessous.' : `Prochaine étape : ${nextUnlockedModule.title}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => (nextUnlockedModule.type === 'quiz' ? openQuiz(nextUnlockedModule) : markModuleCompleted(nextUnlockedModule))}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-cerip-lime text-white hover:bg-cerip-lime-dark shadow-sm transition shrink-0"
+            >
+              {modulesDone === 0 ? 'Démarrer' : nextUnlockedModule.type === 'quiz' ? 'Passer le quiz' : nextUnlockedModule.type === 'text' ? 'Marquer comme lu' : 'Marquer comme vu'}
+            </button>
+          </div>
+        )}
 
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 hover:-translate-y-0.5 transition-all duration-300 ease-out" style={{ animationDelay: '0ms' }}>
@@ -353,56 +397,88 @@ function IncubePortal({ profile, onRefreshProfile }) {
           )}
         </section>
 
-        <section className="bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 dashboard-card" style={{ animationDelay: '320ms' }}>
-          <h2 className="text-base font-semibold text-cerip-forest mb-2">Modules de formation</h2>
+        <section className="dashboard-card" style={{ animationDelay: '320ms' }}>
+          <h2 className="text-base font-semibold text-cerip-forest mb-1">Parcours à la carte</h2>
           <p className="text-xs text-cerip-forest/70 mb-4">
-            Parcours {profile?.current_parcours ?? '—'} — consultez les contenus et validez les quiz pour faire progresser votre score.
+            Parcours {profile?.current_parcours ?? '—'} — suivez les étapes dans l’ordre. Complétez chaque module (et le quiz avec la note requise) pour débloquer le suivant.
           </p>
           {modulesLoading ? (
             <p className="text-sm text-cerip-forest/70">Chargement des modules…</p>
-          ) : modules.length === 0 ? (
+          ) : modulesWithStatus.length === 0 ? (
             <p className="text-sm text-cerip-forest/70">Aucun module pour le moment pour cette phase.</p>
           ) : (
-            <ul className="space-y-2">
-              {modules.map((m) => {
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {modulesWithStatus.map((m, index) => {
                 const prog = progress[m.id];
                 const done = !!prog?.completed_at;
                 const isQuiz = m.type === 'quiz';
+                const locked = !m.unlocked;
+                const imageUrl = m.payload?.image_url || null;
+                const prevModule = index > 0 ? modulesWithStatus[index - 1] : null;
+                const requiredPct = prevModule?.type === 'quiz' ? getRequiredScorePct(prevModule) : null;
                 return (
-                  <li
+                  <div
                     key={m.id}
-                    className="flex items-center justify-between gap-2 rounded-xl border border-cerip-forest/10 bg-cerip-forest-light/30 px-4 py-3 hover:border-cerip-forest/15 transition-colors"
+                    className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
+                      locked
+                        ? 'border-cerip-forest/10 bg-cerip-forest/5 opacity-75'
+                        : 'border-cerip-forest/10 bg-white shadow-sm hover:shadow-md hover:border-cerip-forest/20'
+                    }`}
                   >
-                    <div>
-                      <p className="font-medium text-cerip-forest text-sm">{m.title}</p>
-                      {m.description && <p className="text-xs text-cerip-forest/70">{m.description}</p>}
-                      {done && (
-                        <p className="text-xs text-cerip-lime font-medium mt-0.5">
-                          {prog?.score_pct != null ? `Complété · ${Number(prog.score_pct)} %` : 'Complété'}
+                    <div className="aspect-[16/10] bg-gradient-to-br from-cerip-forest/10 to-cerip-lime/10 flex items-center justify-center overflow-hidden">
+                      {imageUrl ? (
+                        <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-cerip-forest/10 flex items-center justify-center text-cerip-forest/50">
+                          {m.type === 'quiz' ? (
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                          ) : (
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className="font-semibold text-cerip-forest text-sm leading-tight">{m.title}</h3>
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          done ? 'bg-cerip-lime/20 text-cerip-forest' : locked ? 'bg-cerip-forest/10 text-cerip-forest/60' : 'bg-cerip-lime text-white'
+                        }`}>
+                          {done ? (prog?.score_pct != null ? `${Number(prog.score_pct)} %` : 'Complété') : locked ? 'Verrouillé' : 'Disponible'}
+                        </span>
+                      </div>
+                      {m.description && <p className="text-xs text-cerip-forest/70 mb-3 line-clamp-2">{m.description}</p>}
+                      {locked && prevModule && (
+                        <p className="text-xs text-cerip-forest/60 mb-3">
+                          {requiredPct != null
+                            ? `Complétez « ${prevModule.title} » avec au moins ${requiredPct} % pour débloquer.`
+                            : `Complétez « ${prevModule.title} » pour débloquer.`}
                         </p>
                       )}
-                    </div>
-                    <div>
-                      {m.type === 'video' && (done ? <span className="text-xs text-cerip-lime font-medium">Marqué comme vu</span> : (
-                        <button type="button" onClick={() => markModuleCompleted(m)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark transition">Marquer comme vu</button>
-                      ))}
-                      {m.type === 'text' && (done ? <span className="text-xs text-cerip-lime font-medium">Lu</span> : (
-                        <button type="button" onClick={() => markModuleCompleted(m)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark transition">Marquer comme lu</button>
-                      ))}
-                      {isQuiz && (
-                        <button
-                          type="button"
-                          onClick={() => openQuiz(m)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark transition"
-                        >
-                          {done ? 'Revoir le quiz' : 'Passer le quiz'}
-                        </button>
+                      {!locked && (
+                        <div className="mt-2">
+                          {m.type === 'video' && (done ? <span className="text-xs text-cerip-lime font-medium">Marqué comme vu</span> : (
+                            <button type="button" onClick={() => markModuleCompleted(m)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark transition">Marquer comme vu</button>
+                          ))}
+                          {m.type === 'text' && (done ? <span className="text-xs text-cerip-lime font-medium">Lu</span> : (
+                            <button type="button" onClick={() => markModuleCompleted(m)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark transition">Marquer comme lu</button>
+                          ))}
+                          {isQuiz && (
+                            <button
+                              type="button"
+                              onClick={() => openQuiz(m)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark transition"
+                            >
+                              {done ? 'Revoir le quiz' : 'Passer le quiz'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
 
           {quizModule && (

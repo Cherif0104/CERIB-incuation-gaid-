@@ -190,7 +190,7 @@ function App() {
               session && profile ? (
                 <Navigate to={getDashboardPath(profile)} replace />
               ) : (
-                <LoginPage />
+                <LoginPage onLoginSuccess={onLoginSuccess} />
               )
             }
           />

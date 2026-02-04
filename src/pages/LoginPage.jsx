@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { TEST_ACCOUNTS, TEST_ACCOUNTS_PASSWORD } from '../data/testAccounts';
@@ -56,6 +56,17 @@ function LoginPage() {
     });
     if (signInError) {
       setError(signInError.message);
+      setLoading(false);
+      return;
+    }
+    if (onLoginSuccess) {
+      try {
+        const path = await onLoginSuccess();
+        if (path) navigate(path, { replace: true });
+      } catch (err) {
+        console.error('Redirection après connexion:', err);
+        setError('Connexion réussie mais redirection impossible. Rechargez la page.');
+      }
     }
     setLoading(false);
   };

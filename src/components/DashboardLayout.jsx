@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
+/** Navigation par rôle. Chaque rôle ne voit que les liens de son périmètre ; les routes sont protégées par requireAuth dans App. */
 const navByRole = {
   SUPER_ADMIN: [
-    { to: '/super-admin', label: 'Tableau de bord' },
+    { to: '/super-admin', label: 'Organisations' },
   ],
   ADMIN_ORG: [
     { to: '/admin-org', label: 'Tableau de bord' },
@@ -17,9 +18,10 @@ const navByRole = {
   ],
   COACH: [
     { to: '/coach', label: 'Mes incubés' },
+    { to: '/coach', label: 'Demandes de coaching' },
   ],
   CERTIFICATEUR: [
-    { to: '/certificateur', label: 'Sessions de certification' },
+    { to: '/certificateur', label: 'Planifier une session' },
     { to: '/certificateur/questions', label: 'Banque de questions' },
   ],
 };
@@ -68,9 +70,9 @@ function DashboardLayout({ profile, children }) {
           </button>
         </div>
         <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-          {links.map(({ to, label }) => (
+          {links.map(({ to, label }, i) => (
             <Link
-              key={to}
+              key={`${to}-${label}-${i}`}
               to={to}
               className="block px-3 py-2 rounded-lg text-sm font-medium text-cerip-forest/80 hover:bg-cerip-forest/5 hover:text-cerip-forest"
               onClick={() => setSidebarOpen(false)}
