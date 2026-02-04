@@ -26,7 +26,8 @@ function GaindeIcon({ className = 'w-16 h-16' }) {
 
 const OVERLAY_EXIT_MS = 220;
 
-function LoginPage() {
+function LoginPage({ onLoginSuccess }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

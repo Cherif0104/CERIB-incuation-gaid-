@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient';
 const navByRole = {
   SUPER_ADMIN: [
     { to: '/super-admin', label: 'Organisations' },
+    { to: '/super-admin/programmes', label: 'Programmes & Projets' },
   ],
   ADMIN_ORG: [
     { to: '/admin-org', label: 'Tableau de bord' },
@@ -15,6 +16,7 @@ const navByRole = {
     { to: '/admin-org/coachs', label: 'Coachs' },
     { to: '/admin-org/matrixage', label: 'Matrixage' },
     { to: '/admin-org/modules', label: 'Modules pédagogiques' },
+    { to: '/admin-org/programmes', label: 'Programmes' },
   ],
   COACH: [
     { to: '/coach', label: 'Mes incubés' },

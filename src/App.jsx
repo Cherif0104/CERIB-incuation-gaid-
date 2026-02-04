@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
 import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import SuperAdminProgrammesPage from './pages/SuperAdminProgrammesPage';
 import AdminOrgDashboard from './pages/AdminOrgDashboard';
 import CoachDashboard from './pages/CoachDashboard';
 import CertificateurDashboard from './pages/CertificateurDashboard';
@@ -22,6 +23,9 @@ import AdminOrgCoachsPage from './pages/AdminOrgCoachsPage';
 import AdminOrgMatrixagePage from './pages/AdminOrgMatrixagePage';
 import AdminOrgIncubesPage from './pages/AdminOrgIncubesPage';
 import AdminOrgModulesPage from './pages/AdminOrgModulesPage';
+import AdminOrgProgrammesPage from './pages/AdminOrgProgrammesPage';
+import AdminOrgProjetsPage from './pages/AdminOrgProjetsPage';
+import AdminOrgTachesPage from './pages/AdminOrgTachesPage';
 import CertificateurQuestionsPage from './pages/CertificateurQuestionsPage';
 import IncubeExamPage from './pages/IncubeExamPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -230,6 +234,10 @@ function App() {
           />
           <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
           <Route
+            path="/super-admin/programmes"
+            element={requireAuth((p) => <DashboardLayout profile={p}><SuperAdminProgrammesPage /></DashboardLayout>, (p) => p.role === 'SUPER_ADMIN')}
+          />
+          <Route
             path="/super-admin"
             element={requireAuth((p) => <DashboardLayout profile={p}><SuperAdminDashboard profile={p} /></DashboardLayout>, (p) => p.role === 'SUPER_ADMIN')}
           />
@@ -244,6 +252,9 @@ function App() {
             <Route path="coachs" element={<AdminOrgCoachsPage />} />
             <Route path="matrixage" element={<AdminOrgMatrixagePage />} />
             <Route path="modules" element={<AdminOrgModulesPage />} />
+            <Route path="programmes" element={<AdminOrgProgrammesPage />} />
+            <Route path="programmes/:programmeId/projets" element={<AdminOrgProjetsPage />} />
+            <Route path="programmes/:programmeId/projets/:projetId/taches" element={<AdminOrgTachesPage />} />
           </Route>
           <Route
             path="/coach"
