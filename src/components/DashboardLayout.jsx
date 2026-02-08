@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
-/** Navigation par rôle. Chaque rôle ne voit que les liens de son périmètre ; les routes sont protégées par requireAuth dans App. */
+/** Navigation par rôle — chaque rôle reste dans son périmètre (pas d’escalade). */
 const navByRole = {
   SUPER_ADMIN: [
-    { to: '/super-admin', label: 'Organisations' },
-    { to: '/super-admin/programmes', label: 'Programmes & Projets' },
+    { to: '/super-admin', label: 'Tableau de bord' },
+    { to: '/super-admin/staff', label: 'Staff & rôles' },
+    { to: '/super-admin/invitations', label: 'Invitations' },
   ],
   ADMIN_ORG: [
     { to: '/admin-org', label: 'Tableau de bord' },
@@ -14,21 +15,30 @@ const navByRole = {
     { to: '/admin-org/codes', label: 'Codes d\'invitation' },
     { to: '/admin-org/promotions', label: 'Promotions' },
     { to: '/admin-org/coachs', label: 'Coachs' },
+    { to: '/admin-org/certificateurs', label: 'Certificateurs' },
     { to: '/admin-org/matrixage', label: 'Matrixage' },
     { to: '/admin-org/modules', label: 'Modules pédagogiques' },
-    { to: '/admin-org/programmes', label: 'Programmes' },
+  ],
+  ADMIN: [
+    { to: '/admin-org', label: 'Tableau de bord' },
+    { to: '/admin-org/incubes', label: 'Incubés' },
+    { to: '/admin-org/codes', label: 'Codes d\'invitation' },
+    { to: '/admin-org/promotions', label: 'Promotions' },
+    { to: '/admin-org/coachs', label: 'Coachs' },
+    { to: '/admin-org/certificateurs', label: 'Certificateurs' },
+    { to: '/admin-org/matrixage', label: 'Matrixage' },
+    { to: '/admin-org/modules', label: 'Modules pédagogiques' },
   ],
   COACH: [
-    { to: '/coach', label: 'Mes incubés' },
-    { to: '/coach', label: 'Demandes de coaching' },
+    { to: '/coach', label: 'Tableau de bord' },
   ],
   CERTIFICATEUR: [
-    { to: '/certificateur', label: 'Planifier une session' },
+    { to: '/certificateur', label: 'Sessions de certification' },
     { to: '/certificateur/questions', label: 'Banque de questions' },
   ],
 };
 
-function DashboardLayout({ profile, children }) {
+function DashboardLayout({ profile, children, onLogout }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const role = profile?.role;
@@ -37,6 +47,7 @@ function DashboardLayout({ profile, children }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    onLogout?.();
     navigate('/login', { replace: true });
   };
 
@@ -72,9 +83,9 @@ function DashboardLayout({ profile, children }) {
           </button>
         </div>
         <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-          {links.map(({ to, label }, i) => (
+          {links.map(({ to, label }) => (
             <Link
-              key={`${to}-${label}-${i}`}
+              key={to}
               to={to}
               className="block px-3 py-2 rounded-lg text-sm font-medium text-cerip-forest/80 hover:bg-cerip-forest/5 hover:text-cerip-forest"
               onClick={() => setSidebarOpen(false)}
@@ -104,18 +115,8 @@ function DashboardLayout({ profile, children }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center px-4 border-b border-cerip-forest/10 bg-white md:px-6">
-          <button
-            type="button"
-            className="md:hidden p-2 -ml-2 text-cerip-forest"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Ouvrir le menu"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-        </header>
         <main className="flex-1 overflow-auto">
-          {children}
+          {children ?? <div className="p-6 text-cerip-forest/70 text-sm">Chargement…</div>}
         </main>
       </div>
     </div>

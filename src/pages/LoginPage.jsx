@@ -26,7 +26,7 @@ function GaindeIcon({ className = 'w-16 h-16' }) {
 
 const OVERLAY_EXIT_MS = 220;
 
-function LoginPage({ onLoginSuccess }) {
+function LoginPage({ onLoginSuccess, onClearLogoutFlag }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,6 +40,10 @@ function LoginPage({ onLoginSuccess }) {
   useEffect(() => () => {
     if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
   }, []);
+
+  useEffect(() => {
+    onClearLogoutFlag?.();
+  }, [onClearLogoutFlag]);
 
   const fillTestAccount = (acc) => {
     setEmail(acc.email);
@@ -60,16 +64,11 @@ function LoginPage({ onLoginSuccess }) {
       setLoading(false);
       return;
     }
-    if (onLoginSuccess) {
-      try {
-        const path = await onLoginSuccess();
-        if (path) navigate(path, { replace: true });
-      } catch (err) {
-        console.error('Redirection après connexion:', err);
-        setError('Connexion réussie mais redirection impossible. Rechargez la page.');
-      }
-    }
+    const path = await onLoginSuccess?.();
     setLoading(false);
+    if (path && path !== '/login') {
+      navigate(path, { replace: true });
+    }
   };
 
   return (

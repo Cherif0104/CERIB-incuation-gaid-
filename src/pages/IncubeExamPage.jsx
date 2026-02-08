@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 
 const EXAM_DURATION_MINUTES = 30;
 
-function IncubeExamPage({ profile, onDone }) {
+function IncubeExamPage({ profile, onDone, onLogout }) {
   const navigate = useNavigate();
   const submittedRef = useRef(false);
   const [candidate, setCandidate] = useState(null);
@@ -104,6 +104,7 @@ function IncubeExamPage({ profile, onDone }) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    onLogout?.();
     navigate('/login', { replace: true });
   };
 

@@ -5,11 +5,12 @@ import { supabase } from '../lib/supabaseClient';
 /**
  * Layout minimal pour la page Profil quand l'utilisateur est incubé (pas de DashboardLayout).
  */
-function IncubeProfileLayout({ profile, children }) {
+function IncubeProfileLayout({ profile, children, onLogout }) {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    onLogout?.();
     navigate('/login', { replace: true });
   };
 

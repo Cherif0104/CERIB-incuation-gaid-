@@ -12,8 +12,6 @@ function AdminOrgDashboard() {
     coachs: null,
     invitationCodesUsed: null,
     invitationCodesTotal: null,
-    programmes: null,
-    projets: null,
   });
   const [loading, setLoading] = useState(true);
 
@@ -28,32 +26,20 @@ function AdminOrgDashboard() {
         { count: promotions },
         { count: coachs },
         { data: codes },
-        { count: programmes },
-        { data: programmeRows },
       ] = await Promise.all([
         supabase.from('incubes').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId),
         supabase.from('promotions').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId),
         supabase.from('staff_users').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('role', 'COACH'),
         supabase.from('invitation_codes').select('code, used_count, max_uses').eq('organisation_id', orgId),
-        supabase.from('programmes').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId),
-        supabase.from('programmes').select('id').eq('organisation_id', orgId),
       ]);
       const totalUsed = (codes ?? []).reduce((acc, c) => acc + (Number(c.used_count) || 0), 0);
       const totalMax = (codes ?? []).reduce((acc, c) => acc + (Number(c.max_uses) || 0), 0);
-      const programmeIds = (programmeRows ?? []).map((p) => p.id);
-      let projetsCount = 0;
-      if (programmeIds.length > 0) {
-        const { count } = await supabase.from('projets').select('*', { count: 'exact', head: true }).in('programme_id', programmeIds);
-        projetsCount = count ?? 0;
-      }
       setKpis({
         incubes: incubes ?? 0,
         promotions: promotions ?? 0,
         coachs: coachs ?? 0,
         invitationCodesUsed: totalUsed,
         invitationCodesTotal: totalMax,
-        programmes: programmes ?? 0,
-        projets: projetsCount,
       });
     };
     load().finally(() => setLoading(false));
@@ -76,7 +62,7 @@ function AdminOrgDashboard() {
           <p className="text-sm text-cerip-forest/70">Chargement des indicateurs…</p>
         ) : (
           <>
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-6">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
               <MetricCard
                 label="Incubés"
                 value={kpis.incubes}
@@ -100,20 +86,6 @@ function AdminOrgDashboard() {
                 value={kpis.invitationCodesTotal ? `${kpis.invitationCodesUsed} / ${kpis.invitationCodesTotal}` : '—'}
                 subText="Utilisées / max"
                 animationDelay={180}
-              />
-            </div>
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-2 mb-8">
-              <MetricCard
-                label="Programmes"
-                value={kpis.programmes ?? '—'}
-                subText="Parcours 2"
-                animationDelay={200}
-              />
-              <MetricCard
-                label="Projets"
-                value={kpis.projets ?? '—'}
-                subText="Sous les programmes"
-                animationDelay={240}
               />
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -152,43 +124,27 @@ function AdminOrgDashboard() {
                 <p className="text-xs text-cerip-forest/70 mb-2">
                   Générez des codes pour enrôler les incubés.
                 </p>
-                <Link
-                  to="/admin-org/codes"
+                <a
+                  href="/admin-org/codes"
                   className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
                 >
                   Gérer les codes →
-                </Link>
+                </a>
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
-                <h2 className="text-base font-semibold text-cerip-forest mb-2">
-                  Matrixage : Incubé + Promo + Coach
-                </h2>
-                <p className="text-xs text-cerip-forest/70 mb-2">
-                  Assignez les incubés aux promotions et aux coachs.
-                </p>
-                <Link
-                  to="/admin-org/matrixage"
-                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
-                >
-                  Accéder au matrixage →
-                </Link>
-              </div>
-              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
-                <h2 className="text-base font-semibold text-cerip-forest mb-2">
-                  Programmes & Projets
-                </h2>
-                <p className="text-xs text-cerip-forest/70 mb-2">
-                  Gérez les programmes financés et leurs projets (Parcours 2).
-                </p>
-                <Link
-                  to="/admin-org/programmes"
-                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
-                >
-                  Voir les programmes →
-                </Link>
-              </div>
+            <div className="mt-4 dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
+              <h2 className="text-base font-semibold text-cerip-forest mb-2">
+                Matrixage : Incubé + Promo + Coach
+              </h2>
+              <p className="text-xs text-cerip-forest/70 mb-2">
+                Assignez les incubés aux promotions et aux coachs.
+              </p>
+              <Link
+                to="/admin-org/matrixage"
+                className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
+              >
+                Accéder au matrixage →
+              </Link>
             </div>
           </>
         )}

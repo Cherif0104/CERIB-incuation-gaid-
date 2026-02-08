@@ -1,6 +1,6 @@
 # Migrations « suite » (P1→P2, pédagogie, QCM)
 
-Exécuter dans l’ordre dans le SQL Editor Supabase :
+Les migrations sont exécutées **via le MCP Supabase** (pas manuellement dans le SQL Editor). Exécuter les fichiers dans l’ordre suivant :
 
 1. **`migration-p1-p2-progression.sql`**  
    Trigger : passage automatique en P2 quand `p1_score >= 70`.

@@ -19,14 +19,12 @@
 | **Certificateur** | `/certificateur` | **Sessions de certification** (création, ouverture/fermeture Clé 2), liste des candidats, **Banque de questions** (gestion des questions du QCM). |
 | **Incubé** | `/incube` | Progression (P1/P2, scores), **Modules de formation** (texte/vidéo : marquer comme lu/vu ; quiz : passer le quiz), **Demander une session de coaching**, **Lancer l’examen** (si Clé 1 + Clé 2 + fenêtre ouverte). |
 
-Les redirections après connexion utilisent les rôles exacts en base : `SUPER_ADMIN`, `ADMIN_ORG`, `COACH`, `CERTIFICATEUR` (table `staff_users`). Un compte dont le rôle diffère ne sera pas redirigé correctement.
-
 ### Parcours et certification
 
 - **Modules pédagogiques** : types texte, vidéo, quiz ; pour les quiz, calcul des scores et recalcul automatique des scores P1/P2 ; **passage automatique P1 → P2** quand le score P1 ≥ 70 % (trigger en base).
 - **Examen de certification** : page QCM chronométrée (30 min), soumission via RPC `submit_certification_exam`, résultat CERTIFIED / FAILED (seuil 70 %).
 
-### Migrations Supabase (déjà appliquées via MCP)
+### Migrations Supabase (exécutées via MCP Supabase)
 
 - RLS lecture propre profil (`staff_users`, `incubes`).
 - Table `invitation_codes` + RPC `validate_invitation_code`, `accept_invitation` + RLS.

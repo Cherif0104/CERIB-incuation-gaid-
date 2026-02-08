@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import MetricCard from '../components/MetricCard';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -16,6 +17,7 @@ function CertificateurDashboard() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', start_at: '', end_at: '' });
   const [togglingId, setTogglingId] = useState(null);
+  const [expandedSessionId, setExpandedSessionId] = useState(null);
 
   const orgId = profile?.organisation_id;
 
@@ -84,6 +86,10 @@ function CertificateurDashboard() {
     else await fetchSessions();
   };
 
+  const candidatesPending = candidates.filter((c) => c.exam_status === 'PENDING' && !c.exam_result).length;
+  const certifiedCount = candidates.filter((c) => c.exam_result === 'CERTIFIED').length;
+  const failedCount = candidates.filter((c) => c.exam_result === 'FAILED').length;
+
   if (!orgId) {
     return (
       <div className="flex-1 flex flex-col">
@@ -109,6 +115,13 @@ function CertificateurDashboard() {
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3">{error}</div>
         )}
+
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <MetricCard label="Sessions" value={sessions.length} subText="Fenêtres créées" animationDelay={0} />
+          <MetricCard label="En attente d'examen" value={candidatesPending} subText="Clé 1 validée" animationDelay={60} />
+          <MetricCard label="Certifiés" value={certifiedCount} subText="Réussite" animationDelay={120} />
+          <MetricCard label="Non certifiés" value={failedCount} subText="Échec" animationDelay={180} />
+        </div>
 
         <section className="bg-white rounded-xl shadow-sm border border-cerip-forest/5 overflow-hidden">
           <h2 className="text-sm font-semibold text-cerip-forest px-4 py-3 border-b border-cerip-forest/10">
@@ -173,33 +186,73 @@ function CertificateurDashboard() {
                 const end = new Date(s.end_at);
                 const isOpen = s.status === 'OPEN';
                 const inWindow = now >= start && now <= end;
+                const sessionCandidates = candidates.filter((c) => c.session_id === s.id);
+                const expanded = expandedSessionId === s.id;
                 return (
-                  <li key={s.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 hover:bg-cerip-forest-light/30">
-                    <div>
-                      <p className="font-medium text-cerip-forest">{s.name || 'Sans nom'}</p>
-                      <p className="text-xs text-cerip-forest/70">
-                        {formatDate(s.start_at)} → {formatDate(s.end_at)}
-                        {' · '}
-                        <span className={s.status === 'OPEN' ? 'text-cerip-lime font-medium' : 'text-cerip-forest/70'}>
-                          {s.status === 'OPEN' ? 'Ouvert' : s.status === 'CLOSED' ? 'Fermé' : 'Programmée'}
-                        </span>
-                        {inWindow && s.status !== 'OPEN' && (
-                          <span className="ml-1 text-cerip-magenta text-xs">(dans la plage horaire)</span>
-                        )}
-                      </p>
+                  <li key={s.id} className="hover:bg-cerip-forest-light/30">
+                    <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-cerip-forest">{s.name || 'Sans nom'}</p>
+                        <p className="text-xs text-cerip-forest/70">
+                          {formatDate(s.start_at)} → {formatDate(s.end_at)}
+                          {' · '}
+                          <span className={s.status === 'OPEN' ? 'text-cerip-lime font-medium' : 'text-cerip-forest/70'}>
+                            {s.status === 'OPEN' ? 'Ouvert' : s.status === 'CLOSED' ? 'Fermé' : 'Programmée'}
+                          </span>
+                          {inWindow && s.status !== 'OPEN' && (
+                            <span className="ml-1 text-cerip-magenta text-xs">(dans la plage horaire)</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedSessionId(expanded ? null : s.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20"
+                        >
+                          {expanded ? 'Masquer' : 'Voir candidats'} ({sessionCandidates.length})
+                        </button>
+                        <button
+                          type="button"
+                          disabled={togglingId === s.id}
+                          onClick={() => handleToggleSession(s)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                            isOpen
+                              ? 'bg-cerip-magenta/10 text-cerip-magenta hover:bg-cerip-magenta/20'
+                              : 'bg-cerip-lime text-white hover:bg-cerip-lime-dark'
+                          } disabled:opacity-50`}
+                        >
+                          {togglingId === s.id ? '…' : isOpen ? 'Fermer la fenêtre' : 'Ouvrir la fenêtre (Clé 2)'}
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      disabled={togglingId === s.id}
-                      onClick={() => handleToggleSession(s)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                        isOpen
-                          ? 'bg-cerip-magenta/10 text-cerip-magenta hover:bg-cerip-magenta/20'
-                          : 'bg-cerip-lime text-white hover:bg-cerip-lime-dark'
-                      } disabled:opacity-50`}
-                    >
-                      {togglingId === s.id ? '…' : isOpen ? 'Fermer la fenêtre' : 'Ouvrir la fenêtre (Clé 2)'}
-                    </button>
+                    {expanded && (
+                      <div className="px-4 pb-3 border-t border-cerip-forest/5">
+                        {sessionCandidates.length === 0 ? (
+                          <p className="text-xs text-cerip-forest/70 py-2">Aucun candidat lié à cette session.</p>
+                        ) : (
+                          <table className="w-full text-sm mt-2">
+                            <thead>
+                              <tr className="text-left text-cerip-forest/70">
+                                <th className="py-1 pr-2 font-medium">Incubé</th>
+                                <th className="py-1 pr-2 font-medium">Examen</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sessionCandidates.map((c) => (
+                                <tr key={c.id} className="border-t border-cerip-forest/5">
+                                  <td className="py-2">
+                                    <p className="font-medium text-cerip-forest">{c.incubes?.full_name ?? c.incube_id}</p>
+                                    <p className="text-xs text-cerip-forest/70">{c.incubes?.email}</p>
+                                  </td>
+                                  <td className="py-2 text-cerip-forest/80">{c.exam_status} {c.exam_result ? `· ${c.exam_result}` : ''}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}

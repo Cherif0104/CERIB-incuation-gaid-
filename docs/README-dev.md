@@ -31,9 +31,9 @@ Pour stopper le serveur, fais `CTRL + C` dans le terminal.
 
 ## Données persistantes (seed) dans Supabase
 
-Pour avoir des données réalistes et persistantes en base (organisations, promotions, incubés, codes d'invitation) :
+Les migrations et le seed sont exécutés **via le MCP Supabase**. Pour avoir des données réalistes et persistantes en base (organisations, promotions, incubés, codes d'invitation) :
 
-1. **Supabase SQL Editor** : exécuter dans l’ordre :
+1. **MCP Supabase** : exécuter dans l’ordre :
    - `schema.sql` (si pas déjà fait)
    - `migration-invitations.sql`
    - `rls-invitation_codes.sql`
@@ -42,7 +42,7 @@ Pour avoir des données réalistes et persistantes en base (organisations, promo
 2. **Comptes staff (Admin, Coach)** : ils doivent exister dans **Authentication → Users**.  
    - Crée les utilisateurs (Add user) avec les emails souhaités.  
    - Copie l’**UID** de chaque utilisateur.  
-   - Ouvre `seed-staff.sql`, remplace `REMPLACER_PAR_UID_...` par ces UID (format UUID), puis exécute le script dans le SQL Editor.
+   - Ouvre `seed-staff.sql`, remplace `REMPLACER_PAR_UID_...` par ces UID (format UUID), puis exécute le script via le MCP Supabase.
 
 Après ça, la base contient des données réelles et persistantes ; l’app (login, codes d’invitation, dashboards) s’appuie sur cette base.
 

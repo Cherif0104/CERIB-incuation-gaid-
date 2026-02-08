@@ -31,6 +31,8 @@ Dans **Settings** → **Environment Variables**, ajoute :
 
 Ne pas mettre la clé **service_role** sur Vercel (réservée au script seed en local).
 
+Pour l’envoi d’email à la création de compte (Edge Function **create-platform-user**), configurer les secrets côté Supabase : voir **`docs/edge-functions-email.md`** (RESEND_API_KEY, PLATFORM_URL, etc.).
+
 ### 4. Déployer
 
 - **Deploy** : chaque push sur la branche connectée déclenche un déploiement

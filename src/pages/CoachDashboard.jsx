@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import MetricCard from '../components/MetricCard';
 
 const STATUS_LABELS = {
   P1_EN_COURS: 'P1 en cours',
@@ -12,7 +14,8 @@ const STATUS_LABELS = {
   FAILED: 'Non certifié',
 };
 
-function CoachDashboard({ profile }) {
+function CoachDashboard() {
+  const { profile } = useOutletContext() ?? {};
   const [rows, setRows] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +112,11 @@ function CoachDashboard({ profile }) {
 
   const canValidate = (incube) => incube && !['COACH_VALIDATED', 'SESSION_SCHEDULED', 'EXAM_IN_PROGRESS', 'CERTIFIED', 'FAILED'].includes(incube.global_status);
 
+  const uniqueIncubes = [...new Set(rows.map((r) => r.incube_id))].length;
+  const validatedCount = rows.filter((r) =>
+    r.incube && ['COACH_VALIDATED', 'SESSION_SCHEDULED', 'EXAM_IN_PROGRESS', 'CERTIFIED', 'FAILED'].includes(r.incube.global_status)
+  ).length;
+
   return (
     <div className="flex-1 flex flex-col">
       <header className="px-6 py-4 border-b border-cerip-forest/10 bg-white">
@@ -120,6 +128,11 @@ function CoachDashboard({ profile }) {
         </p>
       </header>
       <main className="flex-1 p-6 space-y-6">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+          <MetricCard label="Incubés assignés" value={uniqueIncubes} subText="Dans vos promotions" animationDelay={0} />
+          <MetricCard label="Demandes en attente" value={requests.length} subText="Levée de main" animationDelay={60} />
+          <MetricCard label="Validés Clé 1" value={validatedCount} subText="Ou plus" animationDelay={120} />
+        </div>
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3">
             {error}
@@ -177,7 +190,9 @@ function CoachDashboard({ profile }) {
                   {rows.map((row) => (
                     <tr key={row.id} className="border-b border-cerip-forest/5 hover:bg-cerip-forest-light/30">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-cerip-forest">{row.incube?.full_name}</p>
+                        <Link to={`/coach/incubes/${row.incube?.id}`} className="font-medium text-cerip-forest hover:text-cerip-lime hover:underline">
+                          {row.incube?.full_name}
+                        </Link>
                         <p className="text-xs text-cerip-forest/70">{row.incube?.email}</p>
                       </td>
                       <td className="px-4 py-3 text-cerip-forest/80">{row.promotions?.name ?? row.promotion_id}</td>
