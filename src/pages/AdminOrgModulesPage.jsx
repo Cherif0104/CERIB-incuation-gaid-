@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
+/**
+ * Page Admin Org : Modules pédagogiques.
+ * Formulaire de création/édition en 3 étapes : 1) Identité & cible (titre, promo, formateur),
+ * 2) Parcours (phase, mois, type, ordre), 3) Contenu (selon type : texte, vidéo, document, quiz).
+ * Liste des modules avec Modifier, Supprimer, Questions (quiz), réordonnancement.
+ * @see docs/modules-et-formulaires.md
+ */
 function AdminOrgModulesPage() {
   const { profile } = useOutletContext() || {};
   const orgId = profile?.organisation_id;
@@ -12,14 +19,19 @@ function AdminOrgModulesPage() {
   const [formStep, setFormStep] = useState(1);
   const [quizModal, setQuizModal] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', type: 'text', parcours_phase: 'P1', sort_order: 0, content_body: '', video_url: '', document_url: '' });
+  const [deletingId, setDeletingId] = useState(null);
+  const [form, setForm] = useState({ title: '', description: '', type: 'text', parcours_phase: 'P1', phase_custom: '', mois: '', sort_order: 0, promotion_id: '', formateur_id: '', content_body: '', video_url: '', document_url: '' });
   const [quizForm, setQuizForm] = useState({ questions: [] });
+  const [promotions, setPromotions] = useState([]);
+  const [coachs, setCoachs] = useState([]);
+  const [videoFile, setVideoFile] = useState(null);
+  const [documentFile, setDocumentFile] = useState(null);
 
   const fetchModules = async () => {
     if (!orgId) return;
     const { data, error: e } = await supabase
       .from('learning_modules')
-      .select('id, title, description, sort_order, type, parcours_phase, payload')
+      .select('id, title, description, sort_order, type, parcours_phase, mois, payload, promotion_id, formateur_id')
       .eq('organisation_id', orgId)
       .order('sort_order');
     if (!e) setModules(data || []);
@@ -31,8 +43,23 @@ function AdminOrgModulesPage() {
     fetchModules().finally(() => setLoading(false));
   }, [orgId]);
 
+  useEffect(() => {
+    if (!orgId) return;
+    const load = async () => {
+      const [r1, r2] = await Promise.all([
+        supabase.from('promotions').select('id, name').eq('organisation_id', orgId).order('name'),
+        supabase.from('staff_users').select('id, full_name').eq('organisation_id', orgId).eq('role', 'COACH').order('full_name'),
+      ]);
+      setPromotions(r1.data || []);
+      setCoachs(r2.data || []);
+    };
+    load();
+  }, [orgId]);
+
   const openAdd = () => {
-    setForm({ title: '', description: '', type: 'text', parcours_phase: 'P1', sort_order: modules.length, content_body: '', video_url: '', document_url: '' });
+    setForm({ title: '', description: '', type: 'text', parcours_phase: 'P1', phase_custom: '', mois: '', sort_order: modules.length, promotion_id: '', formateur_id: '', content_body: '', video_url: '', document_url: '' });
+    setVideoFile(null);
+    setDocumentFile(null);
     setModal('add');
     setFormStep(1);
     setError(null);
@@ -46,11 +73,16 @@ function AdminOrgModulesPage() {
       description: m.description || '',
       type: m.type,
       parcours_phase: m.parcours_phase,
+      mois: m.mois != null ? String(m.mois) : '',
       sort_order: order >= 0 ? order : 0,
+      promotion_id: m.promotion_id ?? '',
+      formateur_id: m.formateur_id ?? '',
       content_body: payload.body ?? '',
       video_url: payload.video_url ?? '',
       document_url: payload.document_url ?? '',
     });
+    setVideoFile(null);
+    setDocumentFile(null);
     setModal(m.id);
     setFormStep(1);
     setError(null);
@@ -59,54 +91,128 @@ function AdminOrgModulesPage() {
   const closeModuleModal = () => {
     setModal(null);
     setFormStep(1);
+    setVideoFile(null);
+    setDocumentFile(null);
   };
 
   const saveModule = async (e) => {
     e.preventDefault();
     if (!orgId || !form.title.trim()) return;
+    if (modal === 'add' && (!form.promotion_id || !form.formateur_id)) {
+      setError('Veuillez sélectionner une promotion et un formateur.');
+      return;
+    }
     setSaving(true);
     setError(null);
     const sortOrder = Math.max(0, Number(form.sort_order) || 0);
     const payloadJson = {};
     if (form.type === 'text') {
       if (form.content_body != null) payloadJson.body = form.content_body;
+      if (form.video_url?.trim()) payloadJson.video_url = form.video_url.trim();
       if (form.document_url?.trim()) payloadJson.document_url = form.document_url.trim();
     }
     if (form.type === 'video' && form.video_url != null) payloadJson.video_url = form.video_url.trim() || null;
     if (form.type === 'document' && form.document_url != null) payloadJson.document_url = form.document_url.trim() || null;
+    const moisNum = form.mois !== '' && form.mois != null ? parseInt(form.mois, 10) : null;
+    const phaseValue = form.parcours_phase === 'Autre' ? (form.phase_custom?.trim() || 'P3') : form.parcours_phase;
     const payload = {
       organisation_id: orgId,
       title: form.title.trim(),
       description: form.description.trim() || null,
       type: form.type,
-      parcours_phase: form.parcours_phase,
+      parcours_phase: phaseValue,
+      mois: moisNum >= 1 && moisNum <= 12 ? moisNum : null,
       sort_order: modal === 'add' ? Math.min(sortOrder, modules.length) : sortOrder,
       payload: payloadJson,
+      promotion_id: form.promotion_id || null,
+      formateur_id: form.formateur_id || null,
     };
+    let moduleId = modal === 'add' ? null : modal;
     if (modal === 'add') {
-      const { error: ins } = await supabase.from('learning_modules').insert(payload);
-      if (ins) setError(ins.message);
-      else closeModuleModal();
+      const { data: inserted, error: ins } = await supabase.from('learning_modules').insert(payload).select('id').single();
+      if (ins) {
+        setError(ins.message);
+        setSaving(false);
+        return;
+      }
+      moduleId = inserted?.id;
     } else {
       const { organisation_id: _o, ...up } = payload;
       const { error: upErr } = await supabase.from('learning_modules').update(up).eq('id', modal);
-      if (upErr) setError(upErr.message);
-      else closeModuleModal();
+      if (upErr) {
+        setError(upErr.message);
+        setSaving(false);
+        return;
+      }
+    }
+    if (moduleId && (videoFile || documentFile)) {
+      const updatePayload = { ...payloadJson };
+      if (videoFile) {
+        const ext = videoFile.name.split('.').pop() || 'mp4';
+        const path = `${orgId}/${moduleId}/video.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from('module-assets').upload(path, videoFile, { upsert: true });
+        if (uploadErr) setError('Erreur upload vidéo : ' + uploadErr.message);
+        else updatePayload.video_file_path = path;
+      }
+      if (documentFile) {
+        const ext = documentFile.name.split('.').pop() || 'pdf';
+        const path = `${orgId}/${moduleId}/document.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from('module-assets').upload(path, documentFile, { upsert: true });
+        if (uploadErr) setError('Erreur upload document : ' + uploadErr.message);
+        else updatePayload.document_file_path = path;
+      }
+      await supabase.from('learning_modules').update({ payload: updatePayload }).eq('id', moduleId);
     }
     setSaving(false);
+    closeModuleModal();
     fetchModules();
   };
 
-  const canGoStep2 = form.title.trim().length > 0;
+  const canGoStep2 = form.title.trim().length > 0 && (!!form.promotion_id || modal !== 'add') && (!!form.formateur_id || modal !== 'add');
   const moduleFormSteps = [
-    { num: 1, label: 'Informations générales' },
-    { num: 2, label: 'Contenu' },
+    { num: 1, label: 'Identité & cible' },
+    { num: 2, label: 'Parcours' },
+    { num: 3, label: 'Contenu' },
   ];
+  const canGoStep3 = canGoStep2;
+  const goToStep = (num) => {
+    if (num === 1) {
+      setError(null);
+      setFormStep(1);
+      return;
+    }
+    if (num === 2) {
+      if (canGoStep2) {
+        setError(null);
+        setFormStep(2);
+      }
+      return;
+    }
+    if (num === 3) {
+      if (canGoStep3) {
+        setError(null);
+        setFormStep(3);
+      } else {
+        setError('Complétez l\'étape 1 (Identité & cible) pour accéder au contenu.');
+        document.querySelector('.admin-modules-error')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    }
+  };
 
   const deleteModule = async (id) => {
-    if (!confirm('Supprimer ce module (et ses questions si quiz) ?')) return;
-    await supabase.from('learning_modules').delete().eq('id', id);
-    fetchModules();
+    if (!window.confirm('Supprimer ce module définitivement ? Les questions du quiz seront aussi supprimées.')) return;
+    setError(null);
+    setDeletingId(id);
+    const { error } = await supabase.from('learning_modules').delete().eq('id', id);
+    setDeletingId(null);
+    if (error) {
+      setError('Erreur lors de la suppression : ' + error.message);
+      document.querySelector('.admin-modules-error')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    if (modal === id) closeModuleModal();
+    await fetchModules();
   };
 
   const moveModule = async (index, direction) => {
@@ -265,12 +371,14 @@ function AdminOrgModulesPage() {
       <header className="px-6 py-4 border-b border-cerip-forest/10 bg-white">
         <h1 className="text-lg font-semibold text-cerip-forest">Modules pédagogiques</h1>
         <p className="text-xs text-cerip-forest/70 mt-0.5">
-          Créez les contenus de formation (texte, vidéo, quiz) pour les phases P1 et P2.
+          Créez les parcours et contenus de formation (texte, vidéo, quiz) par phase (P1/P2) et par mois (1–4). Les modules et mois définis ici sont ceux affichés dans le portail incubé et le suivi coach.
         </p>
       </header>
       <main className="flex-1 p-6">
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3 mb-4">{error}</div>
+          <div className="admin-modules-error rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3 mb-4" role="alert">
+            {error}
+          </div>
         )}
         <div className="flex justify-end mb-4">
           <button
@@ -292,7 +400,12 @@ function AdminOrgModulesPage() {
                 <li key={m.id} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-cerip-forest-light/30">
                   <div>
                     <p className="font-medium text-cerip-forest text-sm">{m.title}</p>
-                    <p className="text-xs text-cerip-forest/70">{m.parcours_phase} · {m.type}</p>
+                    <p className="text-xs text-cerip-forest/70">
+                      {m.parcours_phase} · {m.type}
+                      {m.mois != null && <span> · Mois {m.mois}</span>}
+                      {m.promotion_id && <span> · {promotions.find((p) => p.id === m.promotion_id)?.name ?? m.promotion_id}</span>}
+                      {m.formateur_id && <span> · {coachs.find((c) => c.id === m.formateur_id)?.full_name ?? 'Formateur'}</span>}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="flex flex-col" aria-label="Ordre">
@@ -327,8 +440,13 @@ function AdminOrgModulesPage() {
                     <button type="button" onClick={() => openEdit(m)} className="px-2 py-1 rounded text-xs font-medium text-cerip-forest/80 hover:bg-cerip-forest/10">
                       Modifier
                     </button>
-                    <button type="button" onClick={() => deleteModule(m.id)} className="px-2 py-1 rounded text-xs font-medium text-cerip-magenta hover:bg-cerip-magenta-light">
-                      Supprimer
+                    <button
+                      type="button"
+                      onClick={() => deleteModule(m.id)}
+                      disabled={deletingId === m.id}
+                      className="px-2 py-1 rounded text-xs font-medium text-cerip-magenta hover:bg-cerip-magenta-light disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {deletingId === m.id ? 'Suppression…' : 'Supprimer'}
                     </button>
                   </div>
                 </li>
@@ -339,24 +457,37 @@ function AdminOrgModulesPage() {
 
         {modal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto" aria-modal="true" role="dialog">
-            <div className="bg-white rounded-xl shadow-lg border border-cerip-forest/10 max-w-lg w-full p-6 my-8">
+            <div className="bg-white rounded-xl shadow-lg border border-cerip-forest/10 max-w-3xl w-full p-6 md:p-8 my-8">
               <h2 className="text-base font-semibold text-cerip-forest mb-2">{modal === 'add' ? 'Nouveau module' : 'Modifier le module'}</h2>
-              <div className="flex gap-2 mb-6">
+              <div className="flex gap-2 mb-4">
                 {moduleFormSteps.map((s) => (
-                  <div
+                  <button
                     key={s.num}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
-                      formStep === s.num ? 'bg-cerip-lime text-white' : formStep > s.num ? 'bg-cerip-forest/10 text-cerip-forest' : 'bg-cerip-forest/5 text-cerip-forest/60'
+                    type="button"
+                    onClick={() => goToStep(s.num)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                      formStep === s.num ? 'bg-cerip-lime text-white' : formStep > s.num ? 'bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/15' : (s.num === 2 || s.num === 3) && canGoStep2 ? 'bg-cerip-forest/5 text-cerip-forest/70 hover:bg-cerip-forest/10' : 'bg-cerip-forest/5 text-cerip-forest/60 cursor-default'
                     }`}
                   >
                     <span className="w-5 h-5 rounded-full flex items-center justify-center bg-white/20">{s.num}</span>
                     {s.label}
-                  </div>
+                  </button>
                 ))}
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); if (formStep === 2) saveModule(e); else setFormStep(2); }} className="space-y-4">
+              {formStep === 1 && !canGoStep2 && (
+                <p className="text-xs text-cerip-forest/70 mb-4 rounded-lg bg-cerip-forest/5 border border-cerip-forest/10 px-3 py-2">
+                  Complétez l&apos;étape 1 (titre, promotion, formateur) puis cliquez sur Suivant pour accéder au parcours et au contenu.
+                </p>
+              )}
+              {error && error.includes('Complétez l\'étape 1') && (
+                <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2" role="alert">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={(e) => { e.preventDefault(); if (formStep === 3) saveModule(e); else if (formStep === 1) setFormStep(2); else setFormStep(3); }} className="space-y-4">
                 {formStep === 1 && (
                   <>
+                    <h3 className="text-sm font-semibold text-cerip-forest mb-2">Identité & cible</h3>
                     <label className="block">
                       <span className="text-xs font-medium text-cerip-forest/80">Titre</span>
                       <input
@@ -378,8 +509,42 @@ function AdminOrgModulesPage() {
                         placeholder="Courte description du module"
                       />
                     </label>
+                    <div className="rounded-lg bg-cerip-forest/5 border border-cerip-forest/10 px-4 py-3 text-xs text-cerip-forest/80">
+                      Chaque module doit être associé à une promotion et à un formateur (entraîneur). Ces liaisons assurent l&apos;interopérabilité avec les Incubés, Codes, Promotions et Coachs.
+                    </div>
                     <label className="block">
-                      <span className="text-xs font-medium text-cerip-forest/80">Phase</span>
+                      <span className="text-xs font-medium text-cerip-forest/80">Promotion (obligatoire)</span>
+                      <select
+                        value={form.promotion_id}
+                        onChange={(e) => setForm((f) => ({ ...f, promotion_id: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                      >
+                        <option value="">Sélectionner une promotion</option>
+                        {promotions.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-cerip-forest/80">Formateur / Entraîneur (obligatoire)</span>
+                      <select
+                        value={form.formateur_id}
+                        onChange={(e) => setForm((f) => ({ ...f, formateur_id: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                      >
+                        <option value="">Sélectionner un formateur</option>
+                        {coachs.map((c) => (
+                          <option key={c.id} value={c.id}>{c.full_name || c.email}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
+                {formStep === 2 && (
+                  <>
+                    <h3 className="text-sm font-semibold text-cerip-forest mb-2">Parcours</h3>
+                    <label className="block">
+                      <span className="text-xs font-medium text-cerip-forest/80">Phase (extensible)</span>
                       <select
                         value={form.parcours_phase}
                         onChange={(e) => setForm((f) => ({ ...f, parcours_phase: e.target.value }))}
@@ -387,8 +552,32 @@ function AdminOrgModulesPage() {
                       >
                         <option value="P1">P1</option>
                         <option value="P2">P2</option>
-                        <option value="P3">P3 (optionnel)</option>
+                        <option value="P3">P3</option>
+                        <option value="Autre">Autre (saisir ci-dessous)</option>
                       </select>
+                      {form.parcours_phase === 'Autre' && (
+                        <input
+                          type="text"
+                          value={form.phase_custom}
+                          onChange={(e) => setForm((f) => ({ ...f, phase_custom: e.target.value }))}
+                          placeholder="Ex. P4, Phase avancée…"
+                          className="mt-2 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                        />
+                      )}
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-cerip-forest/80">Mois (parcours incubé, extensible)</span>
+                      <select
+                        value={form.mois}
+                        onChange={(e) => setForm((f) => ({ ...f, mois: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                      >
+                        <option value="">Non assigné</option>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                          <option key={n} value={n}>Mois {n}</option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-cerip-forest/60 block mt-0.5">Correspond aux mois du portail incubé et au suivi coach.</span>
                     </label>
                     <label className="block">
                       <span className="text-xs font-medium text-cerip-forest/80">Type de module</span>
@@ -416,8 +605,9 @@ function AdminOrgModulesPage() {
                     </label>
                   </>
                 )}
-                {formStep === 2 && (
+                {formStep === 3 && (
                   <>
+                    <h3 className="text-sm font-semibold text-cerip-forest mb-2">Contenu</h3>
                     {form.type === 'text' && (
                       <>
                         <label className="block">
@@ -440,32 +630,66 @@ function AdminOrgModulesPage() {
                             placeholder="https://…"
                           />
                         </label>
+                        <label className="block">
+                          <span className="text-xs font-medium text-cerip-forest/80">Ou document à uploader (PDF)</span>
+                          <input
+                            type="file"
+                            accept="application/pdf,image/*"
+                            onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                            className="mt-1 w-full text-sm text-cerip-forest file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-cerip-forest/10 file:text-cerip-forest"
+                          />
+                          {documentFile && <span className="text-xs text-cerip-forest/70 block mt-1">{documentFile.name}</span>}
+                        </label>
                       </>
                     )}
                     {form.type === 'document' && (
-                      <label className="block">
-                        <span className="text-xs font-medium text-cerip-forest/80">URL du document</span>
-                        <input
-                          type="url"
-                          value={form.document_url}
-                          onChange={(e) => setForm((f) => ({ ...f, document_url: e.target.value }))}
-                          className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
-                          placeholder="Lien PDF, Google Docs, Google Sheets, etc."
-                        />
-                        <span className="text-xs text-cerip-forest/60 block mt-0.5">L&apos;incubé pourra ouvrir le document dans un nouvel onglet.</span>
-                      </label>
+                      <>
+                        <label className="block">
+                          <span className="text-xs font-medium text-cerip-forest/80">URL du document (optionnel)</span>
+                          <input
+                            type="url"
+                            value={form.document_url}
+                            onChange={(e) => setForm((f) => ({ ...f, document_url: e.target.value }))}
+                            className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                            placeholder="Lien PDF, Google Docs, etc."
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-medium text-cerip-forest/80">Ou document à uploader (PDF)</span>
+                          <input
+                            type="file"
+                            accept="application/pdf,image/*"
+                            onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
+                            className="mt-1 w-full text-sm text-cerip-forest file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-cerip-forest/10 file:text-cerip-forest"
+                          />
+                          {documentFile && <span className="text-xs text-cerip-forest/70 block mt-1">{documentFile.name}</span>}
+                        </label>
+                        <span className="text-xs text-cerip-forest/60 block">L&apos;incubé visualisera le document dans l&apos;application (intra).</span>
+                      </>
                     )}
                     {form.type === 'video' && (
-                      <label className="block">
-                        <span className="text-xs font-medium text-cerip-forest/80">URL vidéo</span>
-                        <input
-                          type="url"
-                          value={form.video_url}
-                          onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
-                          className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
-                          placeholder="https://www.youtube.com/embed/… ou lien direct"
-                        />
-                      </label>
+                      <>
+                        <label className="block">
+                          <span className="text-xs font-medium text-cerip-forest/80">URL vidéo (YouTube, Vimeo, lien direct)</span>
+                          <input
+                            type="url"
+                            value={form.video_url}
+                            onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
+                            className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                            placeholder="https://www.youtube.com/… ou lien direct"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-medium text-cerip-forest/80">Ou fichier vidéo à uploader</span>
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime"
+                            onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                            className="mt-1 w-full text-sm text-cerip-forest file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-cerip-forest/10 file:text-cerip-forest"
+                          />
+                          {videoFile && <span className="text-xs text-cerip-forest/70 block mt-1">{videoFile.name}</span>}
+                        </label>
+                      </>
                     )}
                     {form.type === 'quiz' && (
                       <p className="text-sm text-cerip-forest/80 rounded-lg bg-cerip-forest/5 border border-cerip-forest/10 px-4 py-3">
@@ -478,19 +702,30 @@ function AdminOrgModulesPage() {
                   <button type="button" onClick={closeModuleModal} className="px-3 py-2 rounded-lg text-sm font-medium text-cerip-forest/80 hover:bg-cerip-forest/10">
                     Annuler
                   </button>
-                  {formStep === 2 ? (
+                  {formStep === 1 && (
+                    <button type="submit" disabled={!canGoStep2} className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark disabled:opacity-50">
+                      Suivant
+                    </button>
+                  )}
+                  {formStep === 2 && (
                     <>
                       <button type="button" onClick={() => setFormStep(1)} className="px-3 py-2 rounded-lg text-sm font-medium text-cerip-forest/80 hover:bg-cerip-forest/10">
+                        Précédent
+                      </button>
+                      <button type="submit" className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark">
+                        Suivant
+                      </button>
+                    </>
+                  )}
+                  {formStep === 3 && (
+                    <>
+                      <button type="button" onClick={() => setFormStep(2)} className="px-3 py-2 rounded-lg text-sm font-medium text-cerip-forest/80 hover:bg-cerip-forest/10">
                         Précédent
                       </button>
                       <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark disabled:opacity-50">
                         {saving ? 'Enregistrement…' : 'Enregistrer'}
                       </button>
                     </>
-                  ) : (
-                    <button type="submit" disabled={!canGoStep2} className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark disabled:opacity-50">
-                      Suivant
-                    </button>
                   )}
                 </div>
               </form>

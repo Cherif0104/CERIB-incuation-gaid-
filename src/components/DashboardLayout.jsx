@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabaseClient';
 const navByRole = {
   SUPER_ADMIN: [
     { to: '/super-admin', label: 'Tableau de bord' },
+    { to: '/super-admin/demandes', label: 'DEMANDES & ALERTES' },
+    { to: '/super-admin/contenu', label: 'NOUVEAU / CONTENU' },
     { to: '/super-admin/staff', label: 'Staff & rôles' },
     { to: '/super-admin/invitations', label: 'Invitations' },
   ],
@@ -15,9 +17,8 @@ const navByRole = {
     { to: '/admin-org/codes', label: 'Codes d\'invitation' },
     { to: '/admin-org/promotions', label: 'Promotions' },
     { to: '/admin-org/coachs', label: 'Coachs' },
-    { to: '/admin-org/certificateurs', label: 'Certificateurs' },
-    { to: '/admin-org/matrixage', label: 'Matrixage' },
     { to: '/admin-org/modules', label: 'Modules pédagogiques' },
+    { to: '/admin-org/toolbox', label: 'Boîte à outils' },
   ],
   ADMIN: [
     { to: '/admin-org', label: 'Tableau de bord' },
@@ -25,16 +26,11 @@ const navByRole = {
     { to: '/admin-org/codes', label: 'Codes d\'invitation' },
     { to: '/admin-org/promotions', label: 'Promotions' },
     { to: '/admin-org/coachs', label: 'Coachs' },
-    { to: '/admin-org/certificateurs', label: 'Certificateurs' },
-    { to: '/admin-org/matrixage', label: 'Matrixage' },
     { to: '/admin-org/modules', label: 'Modules pédagogiques' },
+    { to: '/admin-org/toolbox', label: 'Boîte à outils' },
   ],
   COACH: [
     { to: '/coach', label: 'Tableau de bord' },
-  ],
-  CERTIFICATEUR: [
-    { to: '/certificateur', label: 'Sessions de certification' },
-    { to: '/certificateur/questions', label: 'Banque de questions' },
   ],
 };
 

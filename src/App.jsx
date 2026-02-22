@@ -8,11 +8,14 @@ import {
 } from 'react-router-dom';
 import { supabase, checkSupabaseConnection } from './lib/supabaseClient';
 import DashboardLayout from './components/DashboardLayout';
+import CoachLayout from './components/CoachLayout';
 import LoginPage from './pages/LoginPage';
 import SignUpPage from './pages/SignUpPage';
 import AcceptInvitationPage from './pages/AcceptInvitationPage';
 import AcceptAdminInvitationPage from './pages/AcceptAdminInvitationPage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import SuperAdminDemandesPage from './pages/SuperAdminDemandesPage';
+import SuperAdminContenuPage from './pages/SuperAdminContenuPage';
 import SuperAdminOrgDetailPage from './pages/SuperAdminOrgDetailPage';
 import SuperAdminStaffPage from './pages/SuperAdminStaffPage';
 import SuperAdminStaffDetailPage from './pages/SuperAdminStaffDetailPage';
@@ -20,17 +23,13 @@ import SuperAdminInvitationsPage from './pages/SuperAdminInvitationsPage';
 import AdminOrgDashboard from './pages/AdminOrgDashboard';
 import CoachDashboard from './pages/CoachDashboard';
 import CoachIncubeDetailPage from './pages/CoachIncubeDetailPage';
-import CertificateurDashboard from './pages/CertificateurDashboard';
 import IncubePortal from './pages/IncubePortal';
 import AdminOrgCodesPage from './pages/AdminOrgCodesPage';
 import AdminOrgPromotionsPage from './pages/AdminOrgPromotionsPage';
 import AdminOrgCoachsPage from './pages/AdminOrgCoachsPage';
-import AdminOrgCertificateursPage from './pages/AdminOrgCertificateursPage';
-import AdminOrgMatrixagePage from './pages/AdminOrgMatrixagePage';
 import AdminOrgIncubesPage from './pages/AdminOrgIncubesPage';
 import AdminOrgModulesPage from './pages/AdminOrgModulesPage';
-import CertificateurQuestionsPage from './pages/CertificateurQuestionsPage';
-import IncubeExamPage from './pages/IncubeExamPage';
+import AdminOrgToolboxPage from './pages/AdminOrgToolboxPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProfilePage from './pages/ProfilePage';
 import LoadingOverlay from './components/LoadingOverlay';
@@ -38,6 +37,13 @@ import IncubeProfileLayout from './components/IncubeProfileLayout';
 import OrganisationSuspendedPage from './pages/OrganisationSuspendedPage';
 
 const OVERLAY_EXIT_MS = 220;
+
+/** Détecte une erreur auth Supabase (refresh token invalide / expiré). */
+function isAuthRefreshError(message) {
+  if (!message || typeof message !== 'string') return false;
+  const m = message.toLowerCase();
+  return /refresh\s*token|invalid\s*token|token\s*not\s*found|refresh token not found/i.test(m);
+}
 
 function App() {
   const [session, setSession] = useState(null);
@@ -47,6 +53,20 @@ function App() {
   const [justLoggedOut, setJustLoggedOut] = useState(false);
   const exitTimeoutRef = useRef(null);
   const [orgCheck, setOrgCheck] = useState({ loading: false, checked: false, suspended: false });
+
+  // Quand le refresh token est invalide (ex. session expirée côté serveur), Supabase peut rejeter une promesse
+  // en dehors de notre try/catch. On déconnecte pour nettoyer le stockage et afficher la page de login.
+  useEffect(() => {
+    const handleRejection = (event) => {
+      const msg = event?.reason?.message ?? event?.reason?.error_description ?? String(event?.reason ?? '');
+      if (isAuthRefreshError(msg)) {
+        event.preventDefault();
+        supabase.auth.signOut().catch(() => {});
+      }
+    };
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => window.removeEventListener('unhandledrejection', handleRejection);
+  }, []);
 
   /** Déconnexion : nettoie l’état tout de suite pour que la redirection vers /login affiche bien la page de connexion. */
   const onLogout = useCallback(() => {
@@ -100,7 +120,7 @@ function App() {
         const conn = await checkSupabaseConnection();
         if (!conn.ok) {
           const msg = conn.error || '';
-          if (/refresh.?token|invalid.?token|token.?not.?found/i.test(msg)) {
+          if (isAuthRefreshError(msg)) {
             await supabase.auth.signOut();
           } else {
             console.warn('Supabase non disponible:', conn.error);
@@ -114,8 +134,7 @@ function App() {
           } = await supabase.auth.getSession();
 
           if (sessionError) {
-            const msg = sessionError.message || '';
-            if (/refresh.?token|invalid.?token|token.?not.?found/i.test(msg)) {
+            if (isAuthRefreshError(sessionError.message)) {
               await supabase.auth.signOut();
             }
             setSession(null);
@@ -150,7 +169,7 @@ function App() {
         }
       } catch (err) {
         const msg = err?.message || String(err);
-        if (/refresh.?token|invalid.?token|token.?not.?found/i.test(msg)) {
+        if (isAuthRefreshError(msg)) {
           try {
             await supabase.auth.signOut();
           } catch (_) {}
@@ -218,14 +237,14 @@ function App() {
     };
   }, []);
 
-  /** Redirection vers le dashboard selon le rôle. Périmètres : incubé (parcours) ; SUPER_ADMIN (vue globale) ; ADMIN_ORG/ADMIN (org) ; COACH (mes incubés) ; CERTIFICATEUR (sessions, questions). */
+  /** Redirection vers le dashboard selon le rôle. Certificateur retiré du périmètre MVP. */
   const getDashboardPath = useCallback((p) => {
     if (!p) return '/login';
     if (p.kind === 'incube') return '/incube';
     if (p.role === 'SUPER_ADMIN') return '/super-admin';
     if (p.role === 'ADMIN_ORG' || p.role === 'ADMIN') return '/admin-org';
     if (p.role === 'COACH') return '/coach';
-    if (p.role === 'CERTIFICATEUR') return '/certificateur';
+    if (p.role === 'CERTIFICATEUR') return '/login';
     return '/login';
   }, []);
 
@@ -356,6 +375,8 @@ function App() {
             element={requireAuth((p) => <DashboardLayout profile={p} onLogout={onLogout}><Outlet context={{ profile: p }} /></DashboardLayout>, (p) => p.role === 'SUPER_ADMIN')}
           >
             <Route index element={<SuperAdminDashboard />} />
+            <Route path="demandes" element={<SuperAdminDemandesPage />} />
+            <Route path="contenu" element={<SuperAdminContenuPage />} />
             <Route path="organisations/:orgId" element={<SuperAdminOrgDetailPage />} />
             <Route path="staff" element={<SuperAdminStaffPage />} />
             <Route path="staff/:staffId" element={<SuperAdminStaffDetailPage />} />
@@ -370,31 +391,19 @@ function App() {
             <Route path="codes" element={<AdminOrgCodesPage />} />
             <Route path="promotions" element={<AdminOrgPromotionsPage />} />
             <Route path="coachs" element={<AdminOrgCoachsPage />} />
-            <Route path="certificateurs" element={<AdminOrgCertificateursPage />} />
-            <Route path="matrixage" element={<AdminOrgMatrixagePage />} />
             <Route path="modules" element={<AdminOrgModulesPage />} />
+            <Route path="toolbox" element={<AdminOrgToolboxPage />} />
           </Route>
           <Route
             path="/coach"
-            element={requireAuth((p) => <DashboardLayout profile={p} onLogout={onLogout}><Outlet context={{ profile: p }} /></DashboardLayout>, (p) => p.role === 'COACH')}
+            element={requireAuth((p) => <CoachLayout profile={p} onLogout={onLogout}><Outlet context={{ profile: p }} /></CoachLayout>, (p) => p.role === 'COACH')}
           >
             <Route index element={<CoachDashboard />} />
             <Route path="incubes/:incubeId" element={<CoachIncubeDetailPage />} />
           </Route>
           <Route
-            path="/certificateur"
-            element={requireAuth((p) => <DashboardLayout profile={p} onLogout={onLogout}><Outlet context={{ profile: p }} /></DashboardLayout>, (p) => p.role === 'CERTIFICATEUR')}
-          >
-            <Route index element={<CertificateurDashboard />} />
-            <Route path="questions" element={<CertificateurQuestionsPage />} />
-          </Route>
-          <Route
             path="/incube"
             element={requireAuth((p) => <IncubePortal profile={p} onRefreshProfile={refetchProfile} onLogout={onLogout} />, (p) => p.kind === 'incube')}
-          />
-          <Route
-            path="/incube/exam"
-            element={requireAuth((p) => <IncubeExamPage profile={p} onDone={refetchProfile} onLogout={onLogout} />, (p) => p.kind === 'incube')}
           />
           <Route
             path="/organisation-suspendue"

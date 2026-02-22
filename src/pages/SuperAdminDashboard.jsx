@@ -281,6 +281,35 @@ function SuperAdminDashboard() {
           <div className="rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm px-4 py-3">{error}</div>
         )}
 
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-cerip-forest/90 via-cerip-forest-mid to-cerip-forest text-white p-6 md:p-8 shadow-xl border border-cerip-forest/20">
+          <div className="relative z-10">
+            <p className="text-cerip-lime font-semibold text-sm uppercase tracking-wider mb-1">Vue globale</p>
+            <h2 className="text-2xl md:text-4xl font-bold leading-tight mb-2">Plateforme Savana</h2>
+            <p className="text-white/85 text-sm md:text-base mb-4">
+              Organisations, quotas, suspension et indicateurs globaux.
+            </p>
+            <div className="flex flex-wrap items-center gap-6 mb-4">
+              <span className="text-white/90 text-sm">
+                <strong className="text-cerip-lime tabular-nums">{loading ? '—' : stats.totalOrgs}</strong> organisations
+              </span>
+              <span className="text-white/90 text-sm">
+                <strong className="text-cerip-lime tabular-nums">{loading ? '—' : stats.totalIncubes}</strong> incubés
+              </span>
+              <span className="text-white/90 text-sm">
+                <strong className="text-cerip-lime tabular-nums">{loading ? '—' : stats.suspended}</strong> suspendues
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="inline-block min-w-[220px] py-3 px-6 rounded-2xl text-base font-bold bg-cerip-lime text-cerip-forest hover:bg-white shadow-lg hover:shadow-xl transition-all duration-200 text-center"
+            >
+              Créer une organisation
+            </button>
+          </div>
+          <div className="absolute bottom-0 right-0 w-32 h-32 md:w-40 md:h-40 bg-cerip-lime/10 rounded-full -translate-y-1/2 translate-x-1/2" aria-hidden />
+        </section>
+
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           <div className="bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md transition-shadow">
             <p className="text-xs font-medium text-cerip-forest/70 uppercase tracking-wider mb-1">Organisations</p>
