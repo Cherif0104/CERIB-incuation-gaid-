@@ -16,6 +16,7 @@ function SuperAdminStaffPage() {
   const [creatingCert, setCreatingCert] = useState(false);
   const [createCertPasswordResult, setCreateCertPasswordResult] = useState(null);
   const [createCertEmailSent, setCreateCertEmailSent] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -112,6 +113,16 @@ function SuperAdminStaffPage() {
       supabase.from('staff_users').select('*').order('created_at', { ascending: false }),
     ]);
     setStaff(staffData || []);
+  };
+
+  const handleDeleteStaff = async (s) => {
+    if (!window.confirm(`Supprimer le compte staff « ${s.full_name || s.email} » ? La personne ne pourra plus se connecter avec ce rôle.`)) return;
+    setDeletingId(s.id);
+    setError(null);
+    const { error: delErr } = await supabase.from('staff_users').delete().eq('id', s.id);
+    setDeletingId(null);
+    if (delErr) setError(delErr.message);
+    else setStaff((prev) => prev.filter((x) => x.id !== s.id));
   };
 
   return (
@@ -251,6 +262,7 @@ function SuperAdminStaffPage() {
                     <th className="px-4 py-2 text-left font-medium">Rôle</th>
                     <th className="px-4 py-2 text-left font-medium">Organisation</th>
                     <th className="px-4 py-2 text-left font-medium whitespace-nowrap">Créé le</th>
+                    <th className="px-4 py-2 text-right font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cerip-forest/10">
@@ -289,6 +301,16 @@ function SuperAdminStaffPage() {
                       </td>
                       <td className="px-4 py-2 text-cerip-forest/70 whitespace-nowrap">
                         {s.created_at ? new Date(s.created_at).toLocaleString() : '—'}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          type="button"
+                          disabled={deletingId === s.id}
+                          onClick={() => handleDeleteStaff(s)}
+                          className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
+                        >
+                          {deletingId === s.id ? '…' : 'Supprimer'}
+                        </button>
                       </td>
                     </tr>
                   ))}

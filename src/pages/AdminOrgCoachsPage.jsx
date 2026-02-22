@@ -18,6 +18,7 @@ function AdminOrgCoachsPage() {
   const [creating, setCreating] = useState(false);
   const [createResultPassword, setCreateResultPassword] = useState(null);
   const [createResultEmailSent, setCreateResultEmailSent] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const fetchCoachs = async () => {
     if (!orgId) return;
@@ -107,6 +108,16 @@ function AdminOrgCoachsPage() {
     }
     await fetchCoachs();
     setForm({ full_name: '', email: '', auth_user_id: '' });
+  };
+
+  const handleRemoveCoach = async (c) => {
+    if (!window.confirm(`Retirer « ${c.full_name} » des coachs de l'organisation ? Le compte restera dans la plateforme mais ne sera plus coach de cette organisation.`)) return;
+    setDeletingId(c.id);
+    setError(null);
+    const { error: delErr } = await supabase.from('staff_users').delete().eq('id', c.id);
+    setDeletingId(null);
+    if (delErr) setError(delErr.message);
+    else await fetchCoachs();
   };
 
   if (!orgId) {
@@ -266,6 +277,14 @@ function AdminOrgCoachsPage() {
                     <p className="font-medium text-cerip-forest">{c.full_name}</p>
                     <p className="text-xs text-cerip-forest/70">{c.email}</p>
                   </div>
+                  <button
+                    type="button"
+                    disabled={deletingId === c.id}
+                    onClick={() => handleRemoveCoach(c)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {deletingId === c.id ? '…' : 'Retirer'}
+                  </button>
                 </li>
               ))}
             </ul>

@@ -24,6 +24,7 @@ function AdminOrgCodesPage() {
     maxUses: 1,
   });
   const [copyId, setCopyId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const fetchCodes = async () => {
     if (!orgId) return;
@@ -71,6 +72,16 @@ function AdminOrgCodesPage() {
     }
     await fetchCodes();
     setForm({ expiresInDays: 30, maxUses: 1 });
+  };
+
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Supprimer le code « ${row.code} » ? Il ne pourra plus être utilisé.`)) return;
+    setDeletingId(row.id);
+    setError(null);
+    const { error: delErr } = await supabase.from('invitation_codes').delete().eq('id', row.id);
+    setDeletingId(null);
+    if (delErr) setError(delErr.message);
+    else await fetchCodes();
   };
 
   const copyToClipboard = (code, id) => {
@@ -186,9 +197,17 @@ function AdminOrgCodesPage() {
                           <button
                             type="button"
                             onClick={() => copyToClipboard(row.code, row.id)}
-                            className="text-cerip-magenta hover:underline text-xs font-medium"
+                            className="text-cerip-magenta hover:underline text-xs font-medium mr-2"
                           >
                             {copyId === row.id ? 'Copié ✓' : 'Copier le lien'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === row.id}
+                            onClick={() => handleDelete(row)}
+                            className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
+                          >
+                            {deletingId === row.id ? '…' : 'Supprimer'}
                           </button>
                         </td>
                       </tr>

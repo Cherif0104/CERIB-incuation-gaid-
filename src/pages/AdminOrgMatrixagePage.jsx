@@ -12,6 +12,7 @@ function AdminOrgMatrixagePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [form, setForm] = useState({
     incube_id: '',
     promotion_id: '',
@@ -64,6 +65,16 @@ function AdminOrgMatrixagePage() {
     }
     await fetchData();
     setForm({ incube_id: '', promotion_id: '', coach_id: '' });
+  };
+
+  const handleRemoveAssignation = async (row) => {
+    if (!window.confirm(`Retirer l'assignation de ${row.incubes?.full_name ?? 'cet incubé'} pour cette promotion ?`)) return;
+    setDeletingId(row.id);
+    setError(null);
+    const { error: delErr } = await supabase.from('assignations').delete().eq('id', row.id);
+    setDeletingId(null);
+    if (delErr) setError(delErr.message);
+    else await fetchData();
   };
 
   if (!orgId) {
@@ -169,6 +180,7 @@ function AdminOrgMatrixagePage() {
                     <th className="text-left px-4 py-3 font-medium text-cerip-forest">Incubé</th>
                     <th className="text-left px-4 py-3 font-medium text-cerip-forest">Promotion</th>
                     <th className="text-left px-4 py-3 font-medium text-cerip-forest">Coach</th>
+                    <th className="text-right px-4 py-3 font-medium text-cerip-forest">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -177,6 +189,16 @@ function AdminOrgMatrixagePage() {
                       <td className="px-4 py-3 text-cerip-forest">{row.incubes?.full_name ?? '—'} <span className="text-cerip-forest/70">({row.incubes?.email})</span></td>
                       <td className="px-4 py-3 text-cerip-forest/80">{row.promotions?.name ?? row.promotion_id}</td>
                       <td className="px-4 py-3 text-cerip-forest/80">{row.staff_users?.full_name ?? row.coach_id}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          disabled={deletingId === row.id}
+                          onClick={() => handleRemoveAssignation(row)}
+                          className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
+                        >
+                          {deletingId === row.id ? '…' : 'Retirer'}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

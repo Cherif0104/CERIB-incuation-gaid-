@@ -19,6 +19,8 @@ function AdminOrgPromotionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [form, setForm] = useState({
     id: '',
     name: '',
@@ -26,6 +28,7 @@ function AdminOrgPromotionsPage() {
     start_mode: 'P1',
     end_rule: '',
   });
+  const [editForm, setEditForm] = useState({ name: '', parcours_type: 'P1', start_mode: 'P1', end_rule: '' });
 
   const fetchPromotions = async () => {
     if (!orgId) return;
@@ -74,6 +77,46 @@ function AdminOrgPromotionsPage() {
     }
     await fetchPromotions();
     setForm({ id: '', name: '', parcours_type: 'P1', start_mode: 'P1', end_rule: '' });
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editing) return;
+    setError(null);
+    const { error: upErr } = await supabase
+      .from('promotions')
+      .update({
+        name: editForm.name.trim(),
+        parcours_type: editForm.parcours_type,
+        start_mode: editForm.start_mode,
+        end_rule: editForm.end_rule.trim() || null,
+      })
+      .eq('id', editing.id);
+    if (upErr) setError(upErr.message);
+    else {
+      setEditing(null);
+      await fetchPromotions();
+    }
+  };
+
+  const handleDelete = async (promo) => {
+    if (!window.confirm(`Supprimer la promotion « ${promo.name } » ? Les assignations liées seront supprimées.`)) return;
+    setDeletingId(promo.id);
+    setError(null);
+    const { error: delErr } = await supabase.from('promotions').delete().eq('id', promo.id);
+    setDeletingId(null);
+    if (delErr) setError(delErr.message);
+    else await fetchPromotions();
+  };
+
+  const openEdit = (p) => {
+    setEditing(p);
+    setEditForm({
+      name: p.name || '',
+      parcours_type: p.parcours_type || 'P1',
+      start_mode: p.start_mode || 'P1',
+      end_rule: p.end_rule || '',
+    });
   };
 
   if (!orgId) {
@@ -194,9 +237,88 @@ function AdminOrgPromotionsPage() {
                     <p className="font-medium text-cerip-forest">{p.name}</p>
                     <p className="text-xs text-cerip-forest/70 font-mono">{p.id} · {p.parcours_type} · Démarrage {p.start_mode}{p.end_rule ? ` · ${p.end_rule}` : ''}</p>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(p)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingId === p.id}
+                      onClick={() => handleDelete(p)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                    >
+                      {deletingId === p.id ? '…' : 'Supprimer'}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
+            {editing && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" aria-modal="true" role="dialog">
+                <div className="bg-white rounded-xl shadow-xl border border-cerip-forest/10 w-full max-w-md p-6">
+                  <h3 className="text-lg font-semibold text-cerip-forest mb-4">Modifier la promotion</h3>
+                  <form onSubmit={handleUpdate} className="space-y-4">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-cerip-forest/80">Nom</span>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                        className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                        required
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-cerip-forest/80">Type de parcours</span>
+                        <select
+                          value={editForm.parcours_type}
+                          onChange={(e) => setEditForm((f) => ({ ...f, parcours_type: e.target.value }))}
+                          className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest"
+                        >
+                          {PARCOURS_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-cerip-forest/80">Démarrage</span>
+                        <select
+                          value={editForm.start_mode}
+                          onChange={(e) => setEditForm((f) => ({ ...f, start_mode: e.target.value }))}
+                          className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest"
+                        >
+                          {START_MODE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-cerip-forest/80">Règle de fin (optionnel)</span>
+                      <input
+                        type="text"
+                        value={editForm.end_rule}
+                        onChange={(e) => setEditForm((f) => ({ ...f, end_rule: e.target.value }))}
+                        className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                      />
+                    </label>
+                    <div className="flex gap-2 pt-2">
+                      <button type="submit" className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark">
+                        Enregistrer
+                      </button>
+                      <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20">
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           )}
         </section>
       </main>

@@ -103,6 +103,38 @@ function SuperAdminDashboard() {
     load();
   }, []);
 
+  const [deletingOrgId, setDeletingOrgId] = useState(null);
+
+  const handleDeleteOrg = async (e, org) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Supprimer définitivement l'organisation « ${org.name} » ? Incubés, promotions, assignations et sessions de cette organisation seront supprimés. Les comptes staff seront détachés de l'organisation.`)) return;
+    setDeletingOrgId(org.id);
+    setError(null);
+    try {
+      const { error: updErr } = await supabase.from('staff_users').update({ organisation_id: null }).eq('organisation_id', org.id);
+      if (updErr) {
+        setError(updErr.message);
+        setDeletingOrgId(null);
+        return;
+      }
+      const { error: delErr } = await supabase.from('organisations').delete().eq('id', org.id);
+      if (delErr) {
+        setError(delErr.message);
+        setDeletingOrgId(null);
+        return;
+      }
+      setOrganisations((prev) => prev.filter((o) => o.id !== org.id));
+      setStats((s) => ({
+        ...s,
+        totalOrgs: Math.max(0, (s.totalOrgs ?? 0) - 1),
+        suspended: org.is_suspended ? Math.max(0, (s.suspended ?? 0) - 1) : (s.suspended ?? 0),
+      }));
+    } finally {
+      setDeletingOrgId(null);
+    }
+  };
+
   const handleToggleSuspended = async (e, org) => {
     e.preventDefault();
     e.stopPropagation();
@@ -435,6 +467,15 @@ function SuperAdminDashboard() {
                       )}
                     {o.is_suspended ? 'Réactiver' : 'Suspendre'}
                   </button>
+                    <button
+                      type="button"
+                      disabled={deletingOrgId === o.id}
+                      onClick={(e) => handleDeleteOrg(e, o)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:ring-2 focus:ring-red-200 disabled:opacity-50"
+                      title="Supprimer l'organisation (données liées supprimées ou détachées)"
+                    >
+                      {deletingOrgId === o.id ? '…' : 'Supprimer'}
+                    </button>
                   </div>
                 </li>
               ))}

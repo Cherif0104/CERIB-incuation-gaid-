@@ -17,6 +17,7 @@ function CertificateurDashboard() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', start_at: '', end_at: '' });
   const [togglingId, setTogglingId] = useState(null);
+  const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [expandedSessionId, setExpandedSessionId] = useState(null);
 
   const orgId = profile?.organisation_id;
@@ -83,6 +84,16 @@ function CertificateurDashboard() {
       .eq('id', session.id);
     setTogglingId(null);
     if (upErr) setError(upErr.message);
+    else await fetchSessions();
+  };
+
+  const handleDeleteSession = async (session) => {
+    if (!window.confirm(`Supprimer la session « ${session.name || 'Sans nom'} » ? Les candidats liés ne seront plus associés à une fenêtre.`)) return;
+    setDeletingSessionId(session.id);
+    setError(null);
+    const { error: delErr } = await supabase.from('certification_sessions').delete().eq('id', session.id);
+    setDeletingSessionId(null);
+    if (delErr) setError(delErr.message);
     else await fetchSessions();
   };
 
@@ -223,6 +234,14 @@ function CertificateurDashboard() {
                           } disabled:opacity-50`}
                         >
                           {togglingId === s.id ? '…' : isOpen ? 'Fermer la fenêtre' : 'Ouvrir la fenêtre (Clé 2)'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingSessionId === s.id}
+                          onClick={() => handleDeleteSession(s)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          {deletingSessionId === s.id ? '…' : 'Supprimer'}
                         </button>
                       </div>
                     </div>

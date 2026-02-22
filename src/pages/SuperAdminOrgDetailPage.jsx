@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { LEGAL_FORMS } from '../data/legalForms';
 import { SECTORS } from '../data/sectors';
@@ -7,6 +7,7 @@ import { SENEGAL_GEO, getDepartmentsByRegion, getCommunesByDepartment } from '..
 
 function SuperAdminOrgDetailPage() {
   const { orgId } = useParams();
+  const navigate = useNavigate();
   const [organisation, setOrganisation] = useState(null);
   const [stats, setStats] = useState({ incubes: 0, coachs: 0, promotions: 0, modules: 0 });
   const [loading, setLoading] = useState(true);
@@ -33,6 +34,7 @@ function SuperAdminOrgDetailPage() {
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [createAdminPasswordResult, setCreateAdminPasswordResult] = useState(null);
   const [createAdminEmailSent, setCreateAdminEmailSent] = useState(null);
+  const [deletingOrg, setDeletingOrg] = useState(false);
 
   useEffect(() => {
     if (!orgId) {
@@ -170,6 +172,30 @@ function SuperAdminOrgDetailPage() {
 
   const departmentsForRegion = getDepartmentsByRegion(editForm.region);
   const communesForDept = getCommunesByDepartment(editForm.region, editForm.department);
+
+  const handleDeleteOrganisation = async () => {
+    if (!organisation) return;
+    if (!window.confirm(`Supprimer définitivement « ${organisation.name} » ? Incubés, promotions, assignations et sessions seront supprimés. Les comptes staff seront détachés.`)) return;
+    setDeletingOrg(true);
+    setError(null);
+    try {
+      const { error: updErr } = await supabase.from('staff_users').update({ organisation_id: null }).eq('organisation_id', orgId);
+      if (updErr) {
+        setError(updErr.message);
+        setDeletingOrg(false);
+        return;
+      }
+      const { error: delErr } = await supabase.from('organisations').delete().eq('id', orgId);
+      if (delErr) {
+        setError(delErr.message);
+        setDeletingOrg(false);
+        return;
+      }
+      navigate('/super-admin', { replace: true });
+    } finally {
+      setDeletingOrg(false);
+    }
+  };
 
   const handleCreateAdminAccount = async (ev) => {
     ev.preventDefault();
@@ -615,6 +641,23 @@ function SuperAdminOrgDetailPage() {
               {savingQuotas ? 'Enregistrement…' : 'Enregistrer les quotas'}
             </button>
           </form>
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
+          <h2 className="text-sm font-semibold text-red-800 px-4 py-3 border-b border-red-200 bg-red-50">Zone dangereuse</h2>
+          <div className="p-4">
+            <p className="text-sm text-cerip-forest/80 mb-3">
+              La suppression de l&apos;organisation est irréversible. Incubés, promotions, assignations et sessions seront supprimés ; les comptes staff seront détachés.
+            </p>
+            <button
+              type="button"
+              disabled={deletingOrg}
+              onClick={handleDeleteOrganisation}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {deletingOrg ? 'Suppression…' : 'Supprimer l\'organisation'}
+            </button>
+          </div>
         </section>
       </main>
     </div>
