@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Toaster } from 'react-hot-toast';
 import App from './App.jsx';
 import './index.css';
 
@@ -11,6 +12,7 @@ if (!root) {
     ReactDOM.createRoot(root).render(
       <React.StrictMode>
         <App />
+        <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
       </React.StrictMode>
     );
   } catch (err) {

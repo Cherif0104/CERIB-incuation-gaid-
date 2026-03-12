@@ -7,6 +7,7 @@ import {
   Outlet,
 } from 'react-router-dom';
 import { supabase, checkSupabaseConnection } from './lib/supabaseClient';
+import { isUserActionInProgress } from './lib/userActionGuard';
 import DashboardLayout from './components/DashboardLayout';
 import CoachLayout from './components/CoachLayout';
 import LoginPage from './pages/LoginPage';
@@ -23,13 +24,23 @@ import SuperAdminInvitationsPage from './pages/SuperAdminInvitationsPage';
 import AdminOrgDashboard from './pages/AdminOrgDashboard';
 import CoachDashboard from './pages/CoachDashboard';
 import CoachIncubeDetailPage from './pages/CoachIncubeDetailPage';
+import CoachToolboxPage from './pages/CoachToolboxPage';
 import IncubePortal from './pages/IncubePortal';
+import IncubeLayout from './components/incube/IncubeLayout';
+import IncubeModulePage from './pages/IncubeModulePage';
+import IncubeToolboxPage from './pages/IncubeToolboxPage';
+import IncubeCoachPage from './pages/IncubeCoachPage';
 import AdminOrgCodesPage from './pages/AdminOrgCodesPage';
 import AdminOrgPromotionsPage from './pages/AdminOrgPromotionsPage';
 import AdminOrgCoachsPage from './pages/AdminOrgCoachsPage';
 import AdminOrgIncubesPage from './pages/AdminOrgIncubesPage';
 import AdminOrgModulesPage from './pages/AdminOrgModulesPage';
 import AdminOrgToolboxPage from './pages/AdminOrgToolboxPage';
+import AdminOrgMatrixagePage from './pages/AdminOrgMatrixagePage';
+import AdminOrgCertificateursPage from './pages/AdminOrgCertificateursPage';
+import CertificateurDashboard from './pages/CertificateurDashboard';
+import CertificateurQuestionsPage from './pages/CertificateurQuestionsPage';
+import IncubeExamPage from './pages/IncubeExamPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProfilePage from './pages/ProfilePage';
 import LoadingOverlay from './components/LoadingOverlay';
@@ -61,6 +72,9 @@ function App() {
       const msg = event?.reason?.message ?? event?.reason?.error_description ?? String(event?.reason ?? '');
       if (isAuthRefreshError(msg)) {
         event.preventDefault();
+        if (isUserActionInProgress()) {
+          return;
+        }
         supabase.auth.signOut().catch(() => {});
       }
     };
@@ -222,13 +236,17 @@ function App() {
             setProfile(p);
             await updateOrgSuspension(p);
           } else {
-            setProfile(null);
+            setProfile((prev) =>
+              prev?.auth_user_id === newSession.user.id ? prev : null
+            );
             setOrgCheck({ loading: false, checked: false, suspended: false });
           }
         }
       } catch (err) {
         console.error('Chargement profil après connexion:', err);
-        setProfile(null);
+        setProfile((prev) =>
+          prev?.auth_user_id === newSession.user.id ? prev : null
+        );
       }
     });
 
@@ -237,14 +255,14 @@ function App() {
     };
   }, []);
 
-  /** Redirection vers le dashboard selon le rôle. Certificateur retiré du périmètre MVP. */
+  /** Redirection vers le dashboard selon le rôle. */
   const getDashboardPath = useCallback((p) => {
     if (!p) return '/login';
     if (p.kind === 'incube') return '/incube';
     if (p.role === 'SUPER_ADMIN') return '/super-admin';
     if (p.role === 'ADMIN_ORG' || p.role === 'ADMIN') return '/admin-org';
     if (p.role === 'COACH') return '/coach';
-    if (p.role === 'CERTIFICATEUR') return '/login';
+    if (p.role === 'CERTIFICATEUR') return '/certificateur';
     return '/login';
   }, []);
 
@@ -391,6 +409,8 @@ function App() {
             <Route path="codes" element={<AdminOrgCodesPage />} />
             <Route path="promotions" element={<AdminOrgPromotionsPage />} />
             <Route path="coachs" element={<AdminOrgCoachsPage />} />
+            <Route path="matrixage" element={<AdminOrgMatrixagePage />} />
+            <Route path="certificateurs" element={<AdminOrgCertificateursPage />} />
             <Route path="modules" element={<AdminOrgModulesPage />} />
             <Route path="toolbox" element={<AdminOrgToolboxPage />} />
           </Route>
@@ -400,11 +420,34 @@ function App() {
           >
             <Route index element={<CoachDashboard />} />
             <Route path="incubes/:incubeId" element={<CoachIncubeDetailPage />} />
+            <Route path="contenus" element={<CoachToolboxPage />} />
           </Route>
           <Route
-            path="/incube"
-            element={requireAuth((p) => <IncubePortal profile={p} onRefreshProfile={refetchProfile} onLogout={onLogout} />, (p) => p.kind === 'incube')}
+            path="/certificateur"
+            element={requireAuth((p) => <DashboardLayout profile={p} onLogout={onLogout}><Outlet context={{ profile: p }} /></DashboardLayout>, (p) => p.role === 'CERTIFICATEUR')}
+          >
+            <Route index element={<CertificateurDashboard />} />
+            <Route path="questions" element={<CertificateurQuestionsPage />} />
+          </Route>
+          <Route
+            path="/incube/exam"
+            element={requireAuth((p) => (
+              <IncubeExamPage
+                profile={p}
+                onDone={refetchProfile}
+                onLogout={onLogout}
+              />
+            ), (p) => p.kind === 'incube')}
           />
+          <Route
+            path="/incube"
+            element={requireAuth((p) => <IncubeLayout profile={p} onRefreshProfile={refetchProfile} onLogout={onLogout} />, (p) => p.kind === 'incube')}
+          >
+            <Route index element={<IncubePortal />} />
+            <Route path="module/:moduleId" element={<IncubeModulePage />} />
+            <Route path="toolbox" element={<IncubeToolboxPage />} />
+            <Route path="coach" element={<IncubeCoachPage />} />
+          </Route>
           <Route
             path="/organisation-suspendue"
             element={<OrganisationSuspendedPage onLogout={onLogout} />}

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { validateEmail, validateRequired } from '../lib/validation';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { TEST_ACCOUNTS, TEST_ACCOUNTS_PASSWORD } from '../data/testAccounts';
 
 /* Icône lion (Gaindé) — savane, milieu de vie du lion */
 function GaindeIcon({ className = 'w-16 h-16' }) {
@@ -34,7 +35,6 @@ function LoginPage({ onLoginSuccess, onClearLogoutFlag }) {
   const [loading, setLoading] = useState(false);
   const [overlayExiting, setOverlayExiting] = useState(false);
   const [error, setError] = useState('');
-  const [showTestAccounts, setShowTestAccounts] = useState(false);
   const exitTimeoutRef = useRef(null);
 
   useEffect(() => () => {
@@ -45,29 +45,31 @@ function LoginPage({ onLoginSuccess, onClearLogoutFlag }) {
     onClearLogoutFlag?.();
   }, [onClearLogoutFlag]);
 
-  const fillTestAccount = (acc) => {
-    setEmail(acc.email);
-    setPassword(TEST_ACCOUNTS_PASSWORD);
-    setError('');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const emailErr = validateEmail(email);
+    const pwdErr = validateRequired(password, 'Mot de passe');
+    if (emailErr || pwdErr) {
+      toast.error(emailErr || pwdErr);
+      return;
+    }
     setLoading(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     });
     if (signInError) {
+      toast.error(signInError.message);
       setError(signInError.message);
       setLoading(false);
       return;
     }
+    toast.success('Connexion réussie');
     const path = await onLoginSuccess?.();
     setLoading(false);
     if (path && path !== '/login') {
-      navigate(path, { replace: true });
+      setTimeout(() => navigate(path, { replace: true }), 50);
     }
   };
 
@@ -122,7 +124,7 @@ function LoginPage({ onLoginSuccess, onClearLogoutFlag }) {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="exemple@mail.com"
+                    placeholder="votre@email.com"
                     className="w-full border border-cerip-forest/20 rounded-xl pl-3 pr-10 py-3 text-sm text-cerip-forest focus:outline-none focus:ring-2 focus:ring-cerip-lime/50 focus:border-cerip-lime transition"
                     required
                   />
@@ -177,48 +179,6 @@ function LoginPage({ onLoginSuccess, onClearLogoutFlag }) {
                 {loading ? 'Connexion…' : 'Se connecter'}
               </button>
             </form>
-          </div>
-
-          {/* Comptes de test — implantés dans le projet pour tester par rôle */}
-          <div className="mt-6 border border-cerip-forest/15 rounded-xl overflow-hidden bg-cerip-forest/5">
-            <button
-              type="button"
-              onClick={() => setShowTestAccounts((s) => !s)}
-              className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-cerip-forest hover:bg-cerip-forest/10 transition focus:outline-none focus:ring-2 focus:ring-cerip-lime/50 rounded-xl"
-              aria-expanded={showTestAccounts}
-            >
-              <span>Comptes de test (développement)</span>
-              <svg
-                className={`w-5 h-5 text-cerip-forest/60 transition-transform ${showTestAccounts ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showTestAccounts && (
-              <div className="border-t border-cerip-forest/15 px-4 py-3">
-                <p className="text-xs text-cerip-forest/70 mb-2">
-                  Cliquez sur un compte pour remplir le formulaire. Mot de passe commun : <code className="bg-white/80 px-1 rounded">CeripDev2025!</code>
-                </p>
-                <ul className="space-y-1">
-                  {TEST_ACCOUNTS.map((acc) => (
-                    <li key={acc.email}>
-                      <button
-                        type="button"
-                        onClick={() => fillTestAccount(acc)}
-                        className="w-full text-left px-3 py-2 rounded-lg text-sm text-cerip-forest hover:bg-cerip-lime/20 hover:text-cerip-forest transition focus:outline-none focus:ring-2 focus:ring-cerip-lime/50"
-                      >
-                        <span className="font-medium text-cerip-forest">{acc.label}</span>
-                        <span className="block text-xs text-cerip-forest/70 truncate">{acc.email}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       </div>

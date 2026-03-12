@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
 const PARCOURS_OPTIONS = [
@@ -26,9 +27,18 @@ function AdminOrgPromotionsPage() {
     name: '',
     parcours_type: 'P1',
     start_mode: 'P1',
+    start_date: '',
+    end_date: '',
     end_rule: '',
   });
-  const [editForm, setEditForm] = useState({ name: '', parcours_type: 'P1', start_mode: 'P1', end_rule: '' });
+  const [editForm, setEditForm] = useState({
+    name: '',
+    parcours_type: 'P1',
+    start_mode: 'P1',
+    start_date: '',
+    end_date: '',
+    end_rule: '',
+  });
 
   const fetchPromotions = async () => {
     if (!orgId) return;
@@ -41,6 +51,7 @@ function AdminOrgPromotionsPage() {
       .order('name');
     if (e) {
       setError(e.message);
+      toast.error(e.message);
       setPromotions([]);
     } else {
       setPromotions(data || []);
@@ -68,15 +79,19 @@ function AdminOrgPromotionsPage() {
       organisation_id: orgId,
       parcours_type: form.parcours_type,
       start_mode: form.start_mode,
+      start_date: form.start_date?.trim() || null,
+      end_date: form.end_date?.trim() || null,
       end_rule: form.end_rule.trim() || null,
     });
     setCreating(false);
     if (insertErr) {
       setError(insertErr.message);
+      toast.error(insertErr.message);
       return;
     }
+    toast.success('Promotion créée');
     await fetchPromotions();
-    setForm({ id: '', name: '', parcours_type: 'P1', start_mode: 'P1', end_rule: '' });
+    setForm({ id: '', name: '', parcours_type: 'P1', start_mode: 'P1', start_date: '', end_date: '', end_rule: '' });
   };
 
   const handleUpdate = async (e) => {
@@ -89,11 +104,16 @@ function AdminOrgPromotionsPage() {
         name: editForm.name.trim(),
         parcours_type: editForm.parcours_type,
         start_mode: editForm.start_mode,
+        start_date: editForm.start_date?.trim() || null,
+        end_date: editForm.end_date?.trim() || null,
         end_rule: editForm.end_rule.trim() || null,
       })
       .eq('id', editing.id);
-    if (upErr) setError(upErr.message);
-    else {
+    if (upErr) {
+      setError(upErr.message);
+      toast.error(upErr.message);
+    } else {
+      toast.success('Promotion mise à jour');
       setEditing(null);
       await fetchPromotions();
     }
@@ -105,8 +125,13 @@ function AdminOrgPromotionsPage() {
     setError(null);
     const { error: delErr } = await supabase.from('promotions').delete().eq('id', promo.id);
     setDeletingId(null);
-    if (delErr) setError(delErr.message);
-    else await fetchPromotions();
+    if (delErr) {
+      setError(delErr.message);
+      toast.error(delErr.message);
+    } else {
+      toast.success('Promotion supprimée');
+      await fetchPromotions();
+    }
   };
 
   const openEdit = (p) => {
@@ -115,6 +140,8 @@ function AdminOrgPromotionsPage() {
       name: p.name || '',
       parcours_type: p.parcours_type || 'P1',
       start_mode: p.start_mode || 'P1',
+      start_date: p.start_date || '',
+      end_date: p.end_date || '',
       end_rule: p.end_rule || '',
     });
   };
@@ -137,7 +164,7 @@ function AdminOrgPromotionsPage() {
       <header className="px-6 py-4 border-b border-cerip-forest/10 bg-white">
         <h1 className="text-lg font-semibold text-cerip-forest">Promotions</h1>
         <p className="text-xs text-cerip-forest/70 mt-0.5">
-          Créez et gérez les promotions (cohortes) de votre organisation pour structurer les parcours P1/P2.
+          Créez et gérez les promotions (sessions/cohortes) : date de démarrage, type de parcours. Les modules pédagogiques sont ensuite créés par promotion.
         </p>
       </header>
       <main className="flex-1 p-6 space-y-6">
@@ -201,6 +228,27 @@ function AdminOrgPromotionsPage() {
                 </select>
               </label>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-cerip-forest/80">Date de début (cohorte)</span>
+                <input
+                  type="date"
+                  value={form.start_date}
+                  onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                  className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime focus:border-cerip-forest/30"
+                />
+                <span className="text-xs text-cerip-forest/60">Démarrage de la session</span>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-cerip-forest/80">Date de fin (optionnel)</span>
+                <input
+                  type="date"
+                  value={form.end_date}
+                  onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                  className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime focus:border-cerip-forest/30"
+                />
+              </label>
+            </div>
             <label className="flex flex-col gap-1">
               <span className="text-xs font-medium text-cerip-forest/80">Règle de fin (optionnel)</span>
               <input
@@ -230,34 +278,45 @@ function AdminOrgPromotionsPage() {
           ) : promotions.length === 0 ? (
             <div className="p-6 text-center text-cerip-forest/70 text-sm">Aucune promotion. Créez-en une ci-dessus.</div>
           ) : (
-            <ul className="divide-y divide-cerip-forest/5">
-              {promotions.map((p) => (
-                <li key={p.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 hover:bg-cerip-forest-light/30">
-                  <div>
-                    <p className="font-medium text-cerip-forest">{p.name}</p>
-                    <p className="text-xs text-cerip-forest/70 font-mono">{p.id} · {p.parcours_type} · Démarrage {p.start_mode}{p.end_rule ? ` · ${p.end_rule}` : ''}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(p)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20"
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      type="button"
-                      disabled={deletingId === p.id}
-                      onClick={() => handleDelete(p)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
-                    >
-                      {deletingId === p.id ? '…' : 'Supprimer'}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            {editing && (
+            <>
+              <ul className="divide-y divide-cerip-forest/5">
+                {promotions.map((p) => (
+                  <li key={p.id} className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 hover:bg-cerip-forest-light/30">
+                    <div>
+                      <p className="font-medium text-cerip-forest">{p.name}</p>
+                      <p className="text-xs text-cerip-forest/70 font-mono">
+                        {p.id} · {p.parcours_type} · Démarrage {p.start_mode}
+                        {p.start_date && ` · Début ${new Date(p.start_date).toLocaleDateString('fr-FR')}`}
+                        {p.end_rule ? ` · ${p.end_rule}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/admin-org/modules?promotion=${encodeURIComponent(p.id)}`}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-lime/20 text-cerip-forest hover:bg-cerip-lime/30"
+                      >
+                        Modules
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(p)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingId === p.id}
+                        onClick={() => handleDelete(p)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                      >
+                        {deletingId === p.id ? '…' : 'Supprimer'}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {editing && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" aria-modal="true" role="dialog">
                 <div className="bg-white rounded-xl shadow-xl border border-cerip-forest/10 w-full max-w-md p-6">
                   <h3 className="text-lg font-semibold text-cerip-forest mb-4">Modifier la promotion</h3>
@@ -298,6 +357,26 @@ function AdminOrgPromotionsPage() {
                         </select>
                       </label>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-cerip-forest/80">Date de début</span>
+                        <input
+                          type="date"
+                          value={editForm.start_date}
+                          onChange={(e) => setEditForm((f) => ({ ...f, start_date: e.target.value }))}
+                          className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs font-medium text-cerip-forest/80">Date de fin (optionnel)</span>
+                        <input
+                          type="date"
+                          value={editForm.end_date}
+                          onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))}
+                          className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest"
+                        />
+                      </label>
+                    </div>
                     <label className="flex flex-col gap-1">
                       <span className="text-xs font-medium text-cerip-forest/80">Règle de fin (optionnel)</span>
                       <input
@@ -319,6 +398,7 @@ function AdminOrgPromotionsPage() {
                 </div>
               </div>
             )}
+            </>
           )}
         </section>
       </main>

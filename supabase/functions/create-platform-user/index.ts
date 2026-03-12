@@ -26,7 +26,7 @@ function randomPassword(length = 12): string {
   return Array.from(arr, (b) => chars[b % chars.length]).join('');
 }
 
-const ROLES = ['ADMIN_ORG', 'COACH', 'CERTIFICATEUR', 'INCUBE'] as const;
+const ROLES = ['SUPER_ADMIN', 'ADMIN_ORG', 'COACH', 'CERTIFICATEUR', 'INCUBE'] as const;
 type Role = (typeof ROLES)[number];
 
 interface Body {
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     }
     if (!role || !ROLES.includes(role)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Rôle invalide (ADMIN_ORG, COACH, CERTIFICATEUR, INCUBE)' }),
+        JSON.stringify({ success: false, error: 'Rôle invalide (SUPER_ADMIN, ADMIN_ORG, COACH, CERTIFICATEUR, INCUBE)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -94,7 +94,20 @@ Deno.serve(async (req) => {
     const isAdminOrg = caller.role === 'ADMIN_ORG';
     const callerOrgId = caller.organisation_id ?? null;
 
-    if (role === 'ADMIN_ORG') {
+    if (role === 'SUPER_ADMIN') {
+      if (!isSuperAdmin) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Seul un Super Admin peut créer un autre Super Admin' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (organisation_id != null) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Un Super Admin n\'a pas d\'organisation (organisation_id doit être null)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (role === 'ADMIN_ORG') {
       if (!isSuperAdmin || !organisation_id) {
         return new Response(
           JSON.stringify({ success: false, error: 'Seul un Super Admin peut créer un compte Admin Org avec organisation_id' }),

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { startUserActionGuard } from '../lib/userActionGuard';
 import { STAFF_ROLE_LABELS as ROLE_LABELS } from '../data/roleLabels';
 
 function SuperAdminStaffPage() {
@@ -16,6 +17,10 @@ function SuperAdminStaffPage() {
   const [creatingCert, setCreatingCert] = useState(false);
   const [createCertPasswordResult, setCreateCertPasswordResult] = useState(null);
   const [createCertEmailSent, setCreateCertEmailSent] = useState(null);
+  const [createSuperAdminForm, setCreateSuperAdminForm] = useState({ full_name: '', email: '', password: '' });
+  const [creatingSuperAdmin, setCreatingSuperAdmin] = useState(false);
+  const [createSuperAdminPasswordResult, setCreateSuperAdminPasswordResult] = useState(null);
+  const [createSuperAdminEmailSent, setCreateSuperAdminEmailSent] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
@@ -71,6 +76,49 @@ function SuperAdminStaffPage() {
     return (da - db) * dir;
   });
 
+  const handleCreateSuperAdmin = async (e) => {
+    e.preventDefault();
+    const email = (createSuperAdminForm.email || '').trim().toLowerCase();
+    if (!email) {
+      setError('E-mail requis.');
+      return;
+    }
+    const pwd = (createSuperAdminForm.password || '').trim();
+    if (pwd && pwd.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères (ou laisser vide pour en générer un).');
+      return;
+    }
+    setCreatingSuperAdmin(true);
+    setError(null);
+    setCreateSuperAdminPasswordResult(null);
+    setCreateSuperAdminEmailSent(null);
+    const { data, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
+      body: {
+        email,
+        full_name: (createSuperAdminForm.full_name || '').trim() || email,
+        password: pwd || undefined,
+        role: 'SUPER_ADMIN',
+        organisation_id: null,
+      },
+    });
+    setCreatingSuperAdmin(false);
+    if (fnErr) {
+      setError(fnErr.message || 'Erreur lors de la création du compte Super Admin.');
+      return;
+    }
+    if (!data?.success) {
+      setError(data?.error || 'Erreur lors de la création du compte Super Admin.');
+      return;
+    }
+    if (data.temporary_password) setCreateSuperAdminPasswordResult(data.temporary_password);
+    if (data.email_sent) setCreateSuperAdminEmailSent(email);
+    setCreateSuperAdminForm({ full_name: '', email: '', password: '' });
+    const [{ data: staffData }] = await Promise.all([
+      supabase.from('staff_users').select('*').order('created_at', { ascending: false }),
+    ]);
+    setStaff(staffData || []);
+  };
+
   const handleCreateSuperCertificateur = async (e) => {
     e.preventDefault();
     const email = (createCertForm.email || '').trim().toLowerCase();
@@ -87,6 +135,7 @@ function SuperAdminStaffPage() {
     setError(null);
     setCreateCertPasswordResult(null);
     setCreateCertEmailSent(null);
+    startUserActionGuard(6000);
     const { data, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
       body: {
         email,
@@ -140,6 +189,66 @@ function SuperAdminStaffPage() {
 
         <section className="bg-white rounded-xl shadow-sm border border-cerip-forest/10 overflow-hidden">
           <h2 className="text-sm font-semibold text-cerip-forest px-4 py-3 border-b border-cerip-forest/10">
+            Créer un Super Admin
+          </h2>
+          <p className="px-4 pt-2 text-xs text-cerip-forest/70">
+            Un Super Admin a accès à toute la plateforme (organisations, staff, invitations). Laissez le mot de passe vide pour en générer un.
+          </p>
+          <form onSubmit={handleCreateSuperAdmin} className="p-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-cerip-forest/80">Nom complet</span>
+                <input
+                  type="text"
+                  value={createSuperAdminForm.full_name}
+                  onChange={(e) => setCreateSuperAdminForm((f) => ({ ...f, full_name: e.target.value }))}
+                  placeholder="Ex. Jean Dupont"
+                  className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-cerip-forest/80">E-mail *</span>
+                <input
+                  type="email"
+                  value={createSuperAdminForm.email}
+                  onChange={(e) => setCreateSuperAdminForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="super-admin@plateforme.sn"
+                  className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm"
+                  required
+                />
+              </label>
+            </div>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-cerip-forest/80">Mot de passe (optionnel)</span>
+              <input
+                type="password"
+                value={createSuperAdminForm.password}
+                onChange={(e) => setCreateSuperAdminForm((f) => ({ ...f, password: e.target.value }))}
+                placeholder="Vide = généré"
+                className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm"
+              />
+            </label>
+            {createSuperAdminPasswordResult && (
+              <div className="rounded-lg border border-cerip-forest/15 bg-cerip-forest-light/40 px-3 py-2 space-y-1">
+                <p className="text-xs font-medium text-cerip-forest/80">Mot de passe temporaire à communiquer</p>
+                <p className="text-sm font-mono text-cerip-forest break-all select-all">{createSuperAdminPasswordResult}</p>
+                {createSuperAdminEmailSent && (
+                  <p className="text-xs text-cerip-forest/80">Un email a été envoyé à {createSuperAdminEmailSent} avec les instructions de connexion.</p>
+                )}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={creatingSuperAdmin}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark disabled:opacity-50"
+            >
+              {creatingSuperAdmin ? 'Création…' : 'Créer le Super Admin'}
+            </button>
+          </form>
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm border border-cerip-forest/10 overflow-hidden">
+          <h2 className="text-sm font-semibold text-cerip-forest px-4 py-3 border-b border-cerip-forest/10">
             Créer un super certificateur (sans organisation)
           </h2>
           <p className="px-4 pt-2 text-xs text-cerip-forest/70">
@@ -163,7 +272,7 @@ function SuperAdminStaffPage() {
                   type="email"
                   value={createCertForm.email}
                   onChange={(e) => setCreateCertForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="certificateur@exemple.sn"
+                  placeholder="certificateur@votre-organisation.com"
                   className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm"
                   required
                 />

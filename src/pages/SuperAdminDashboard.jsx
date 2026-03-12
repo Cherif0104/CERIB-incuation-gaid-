@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { startUserActionGuard } from '../lib/userActionGuard';
 import { LEGAL_FORMS } from '../data/legalForms';
 import { SECTORS } from '../data/sectors';
 import { SENEGAL_GEO, getDepartmentsByRegion, getCommunesByDepartment } from '../data/senegalGeo';
@@ -49,6 +51,7 @@ function SuperAdminDashboard() {
   const [createSaving, setCreateSaving] = useState(false);
   const [createSuccessAdminPassword, setCreateSuccessAdminPassword] = useState(null);
   const [createSuccessAdminEmail, setCreateSuccessAdminEmail] = useState(null);
+  const [createSuccessInvitationLink, setCreateSuccessInvitationLink] = useState(null);
   const [filterRegion, setFilterRegion] = useState('');
   const [filterSector, setFilterSector] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -193,6 +196,7 @@ function SuperAdminDashboard() {
     setCreateError(null);
     setCreateSuccessAdminPassword(null);
     setCreateSuccessAdminEmail(null);
+    setCreateSuccessInvitationLink(null);
   };
 
   const handleCreateSubmit = async (e) => {
@@ -236,9 +240,11 @@ function SuperAdminDashboard() {
     if (err) {
       setCreateSaving(false);
       setCreateError(err.message || 'Erreur lors de la création.');
+      toast.error(err.message || 'Erreur lors de la création.');
       return;
     }
 
+    toast.success('Organisation créée');
     const adminEmail = (createForm.admin_email || '').trim().toLowerCase();
     if (adminEmail) {
       const adminPassword = (createForm.admin_password || '').trim();
@@ -247,6 +253,7 @@ function SuperAdminDashboard() {
         setCreateError('Le mot de passe admin doit faire au moins 6 caractères (ou laisser vide pour en générer un).');
         return;
       }
+      startUserActionGuard(6000);
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
         body: {
           email: adminEmail,
@@ -256,14 +263,23 @@ function SuperAdminDashboard() {
           organisation_id: id,
         },
       });
-      if (fnErr) {
+      if (fnErr || !fnData?.success) {
+        // Fallback : création d'une invitation admin (si Edge Function non déployée ou CORS)
+        const fullName = (createForm.admin_full_name || '').trim() || null;
+        const invParams = { org_id: id, email: adminEmail };
+        if (fullName) invParams.full_name = fullName;
+        const { data: invData, error: invErr } = await supabase.rpc('invite_admin', invParams);
+        if (!invErr && invData?.success && invData?.token) {
+          const invLink = `${window.location.origin}/accept-admin-invitation?token=${encodeURIComponent(invData.token)}`;
+          setCreateSuccessInvitationLink(invLink);
+          setCreateSuccessAdminEmail(adminEmail);
+          setCreateSaving(false);
+          load();
+          return;
+        }
         setCreateSaving(false);
-        setCreateError(fnErr.message || 'Organisation créée mais erreur lors de la création du compte admin.');
-        return;
-      }
-      if (!fnData?.success) {
-        setCreateSaving(false);
-        setCreateError(fnData?.error || 'Organisation créée mais erreur lors de la création du compte admin.');
+        setCreateError('Organisation créée. Création du compte admin échouée. Utilisez l\'invitation par lien ci-dessous.');
+        load();
         return;
       }
       const tempPassword = fnData.temporary_password;
@@ -283,6 +299,11 @@ function SuperAdminDashboard() {
     closeCreateModal();
     load();
   };
+
+  const canCloseModalOnBackdrop = () =>
+    createSuccessAdminPassword ||
+    createSuccessInvitationLink ||
+    (!(createForm.id || '').trim() && !(createForm.name || '').trim());
 
   const departmentsForRegion = getDepartmentsByRegion(createForm.region);
   const communesForDept = getCommunesByDepartment(createForm.region, createForm.department);
@@ -523,9 +544,34 @@ function SuperAdminDashboard() {
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto" onClick={() => !createSuccessAdminPassword && closeCreateModal()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto" onClick={() => canCloseModalOnBackdrop() && closeCreateModal()}>
           <div className="bg-white rounded-2xl shadow-xl border border-cerip-forest/10 max-w-lg w-full my-6 p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {createSuccessAdminPassword ? (
+            {createSuccessInvitationLink ? (
+              <>
+                <h3 className="text-sm font-semibold text-cerip-forest mb-2">Organisation créée – Invitation admin</h3>
+                <p className="text-xs text-cerip-forest/70 mb-3">
+                  L&apos;Edge Function n&apos;est pas disponible. Envoyez ce lien à {createSuccessAdminEmail} pour qu&apos;il crée son compte.
+                </p>
+                <div className="rounded-lg bg-cerip-forest-light/50 border border-cerip-forest/20 px-3 py-2 mb-3">
+                  <p className="text-xs font-medium text-cerip-forest/80 mb-1">Lien d&apos;invitation</p>
+                  <p className="text-sm font-mono text-cerip-forest break-all select-all">{createSuccessInvitationLink}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard?.writeText(createSuccessInvitationLink); }}
+                  className="mr-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-cerip-forest/20 text-cerip-forest hover:bg-cerip-forest-light/30"
+                >
+                  Copier
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { closeCreateModal(); load(); }}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-cerip-lime text-white hover:bg-cerip-lime-dark"
+                >
+                  Fermer
+                </button>
+              </>
+            ) : createSuccessAdminPassword ? (
               <>
                 <h3 className="text-sm font-semibold text-cerip-forest mb-2">Organisation et compte admin créés</h3>
                 <p className="text-xs text-cerip-forest/70 mb-3">
@@ -575,12 +621,11 @@ function SuperAdminDashboard() {
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-cerip-forest/80">Forme juridique *</span>
+                <span className="text-xs font-medium text-cerip-forest/80">Forme juridique</span>
                 <select
                   value={createForm.legal_form}
                   onChange={(e) => setCreateForm((f) => ({ ...f, legal_form: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm"
-                  required
                 >
                   <option value="">— Choisir —</option>
                   {LEGAL_FORMS.map((lf) => (

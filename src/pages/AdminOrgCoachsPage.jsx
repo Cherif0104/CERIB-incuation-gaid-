@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { startUserActionGuard } from '../lib/userActionGuard';
 
 function AdminOrgCoachsPage() {
   const { profile } = useOutletContext() || {};
@@ -32,6 +34,7 @@ function AdminOrgCoachsPage() {
       .order('full_name');
     if (e) {
       setError(e.message);
+      toast.error(e.message);
       setCoachs([]);
     } else {
       setCoachs(data || []);
@@ -48,18 +51,22 @@ function AdminOrgCoachsPage() {
     if (!orgId) return;
     const email = (createForm.email || '').trim().toLowerCase();
     if (!email) {
+      toast.error('E-mail requis.');
       setError('E-mail requis.');
       return;
     }
     const pwd = (createForm.password || '').trim();
     if (pwd && pwd.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères (ou laisser vide pour en générer un).');
+      const msg = 'Le mot de passe doit contenir au moins 6 caractères (ou laisser vide pour en générer un).';
+      toast.error(msg);
+      setError(msg);
       return;
     }
     setCreating(true);
     setError(null);
     setCreateResultPassword(null);
     setCreateResultEmailSent(null);
+    startUserActionGuard(6000);
     const { data, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
       body: {
         email,
@@ -71,13 +78,18 @@ function AdminOrgCoachsPage() {
     });
     setCreating(false);
     if (fnErr) {
-      setError(fnErr.message || 'Erreur lors de la création du compte.');
+      const msg = fnErr.message || 'Erreur lors de la création du compte.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     if (!data?.success) {
-      setError(data?.error || 'Erreur lors de la création du compte.');
+      const msg = data?.error || 'Erreur lors de la création du compte.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
+    toast.success('Coach créé');
     if (data.temporary_password) setCreateResultPassword(data.temporary_password);
     if (data.email_sent) setCreateResultEmailSent(email);
     setCreateForm({ full_name: '', email: '', password: '' });
@@ -89,6 +101,7 @@ function AdminOrgCoachsPage() {
     if (!orgId) return;
     const uid = form.auth_user_id.trim();
     if (!uid || !form.full_name.trim() || !form.email.trim()) {
+      toast.error('Nom, e-mail et UID Auth requis.');
       setError('Nom, e-mail et UID Auth requis.');
       return;
     }
@@ -104,8 +117,10 @@ function AdminOrgCoachsPage() {
     setAdding(false);
     if (insertErr) {
       setError(insertErr.message);
+      toast.error(insertErr.message);
       return;
     }
+    toast.success('Coach ajouté');
     await fetchCoachs();
     setForm({ full_name: '', email: '', auth_user_id: '' });
   };
@@ -116,8 +131,13 @@ function AdminOrgCoachsPage() {
     setError(null);
     const { error: delErr } = await supabase.from('staff_users').delete().eq('id', c.id);
     setDeletingId(null);
-    if (delErr) setError(delErr.message);
-    else await fetchCoachs();
+    if (delErr) {
+      setError(delErr.message);
+      toast.error(delErr.message);
+    } else {
+      toast.success('Coach retiré');
+      await fetchCoachs();
+    }
   };
 
   if (!orgId) {
@@ -173,7 +193,7 @@ function AdminOrgCoachsPage() {
                   type="email"
                   value={createForm.email}
                   onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="coach@exemple.sn"
+                  placeholder="coach@votre-organisation.com"
                   className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime focus:border-cerip-forest/30"
                   required
                 />
@@ -234,7 +254,7 @@ function AdminOrgCoachsPage() {
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="coach@exemple.sn"
+                  placeholder="coach@votre-organisation.com"
                   className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime focus:border-cerip-forest/30"
                   required
                 />

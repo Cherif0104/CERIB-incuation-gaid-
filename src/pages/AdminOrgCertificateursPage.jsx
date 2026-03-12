@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { startUserActionGuard } from '../lib/userActionGuard';
 
 function AdminOrgCertificateursPage() {
   const { profile } = useOutletContext() || {};
@@ -53,6 +55,7 @@ function AdminOrgCertificateursPage() {
     setError(null);
     setCreateResultPassword(null);
     setCreateResultEmailSent(null);
+    startUserActionGuard(6000);
     const { data, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
       body: {
         email,
@@ -65,12 +68,15 @@ function AdminOrgCertificateursPage() {
     setCreating(false);
     if (fnErr) {
       setError(fnErr.message || 'Erreur lors de la création du compte.');
+      toast.error(fnErr.message || 'Erreur lors de la création du compte.');
       return;
     }
     if (!data?.success) {
       setError(data?.error || 'Erreur lors de la création du compte.');
+      toast.error(data?.error || 'Erreur lors de la création du compte.');
       return;
     }
+    toast.success('Certificateur créé');
     if (data.temporary_password) setCreateResultPassword(data.temporary_password);
     if (data.email_sent) setCreateResultEmailSent(email);
     setCreateForm({ full_name: '', email: '', password: '' });
@@ -130,7 +136,7 @@ function AdminOrgCertificateursPage() {
                   type="email"
                   value={createForm.email}
                   onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="certificateur@exemple.sn"
+                  placeholder="certificateur@votre-organisation.com"
                   className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime focus:border-cerip-forest/30"
                   required
                 />

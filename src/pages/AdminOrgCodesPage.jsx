@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
 function generateCode() {
@@ -37,6 +38,7 @@ function AdminOrgCodesPage() {
       .order('created_at', { ascending: false });
     if (e) {
       setError(e.message);
+      toast.error(e.message);
       setCodes([]);
     } else {
       setCodes(data || []);
@@ -68,8 +70,10 @@ function AdminOrgCodesPage() {
     setCreating(false);
     if (insertErr) {
       setError(insertErr.message);
+      toast.error(insertErr.message);
       return;
     }
+    toast.success('Code créé');
     await fetchCodes();
     setForm({ expiresInDays: 30, maxUses: 1 });
   };
@@ -80,8 +84,13 @@ function AdminOrgCodesPage() {
     setError(null);
     const { error: delErr } = await supabase.from('invitation_codes').delete().eq('id', row.id);
     setDeletingId(null);
-    if (delErr) setError(delErr.message);
-    else await fetchCodes();
+    if (delErr) {
+      setError(delErr.message);
+      toast.error(delErr.message);
+    } else {
+      toast.success('Code supprimé');
+      await fetchCodes();
+    }
   };
 
   const copyToClipboard = (code, id) => {

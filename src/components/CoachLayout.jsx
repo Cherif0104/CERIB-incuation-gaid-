@@ -80,6 +80,12 @@ function CoachLayout({ profile, onLogout }) {
           </Link>
         </div>
         <p className="text-white/90 font-semibold text-sm uppercase tracking-wider px-2 mb-2">COACH</p>
+        <Link
+          to="/coach/contenus"
+          className="block px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 mb-2"
+        >
+          Boîte à outils
+        </Link>
         <div className="bg-cerip-magenta/20 text-white rounded-lg px-3 py-2 mb-3">
           <p className="text-sm font-semibold">DEMANDES & ALERTES</p>
         </div>
@@ -97,7 +103,7 @@ function CoachLayout({ profile, onLogout }) {
                     className="block px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-white/10 flex items-center justify-between gap-2"
                   >
                     <span className="truncate">{item.full_name}</span>
-                    <span className="text-xs shrink-0">Mois {item.mois_num}</span>
+                    <span className="text-xs shrink-0">Étape {item.mois_num}</span>
                   </Link>
                 </li>
               ))

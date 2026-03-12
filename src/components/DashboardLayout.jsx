@@ -13,24 +13,32 @@ const navByRole = {
   ],
   ADMIN_ORG: [
     { to: '/admin-org', label: 'Tableau de bord' },
+    { to: '/admin-org/promotions', label: 'Promotions (cohortes)' },
+    { to: '/admin-org/modules', label: 'Modules pédagogiques' },
     { to: '/admin-org/incubes', label: 'Incubés' },
     { to: '/admin-org/codes', label: 'Codes d\'invitation' },
-    { to: '/admin-org/promotions', label: 'Promotions' },
     { to: '/admin-org/coachs', label: 'Coachs' },
-    { to: '/admin-org/modules', label: 'Modules pédagogiques' },
+    { to: '/admin-org/matrixage', label: 'Matrixage' },
+    { to: '/admin-org/certificateurs', label: 'Certificateurs' },
     { to: '/admin-org/toolbox', label: 'Boîte à outils' },
   ],
   ADMIN: [
     { to: '/admin-org', label: 'Tableau de bord' },
+    { to: '/admin-org/promotions', label: 'Promotions (cohortes)' },
+    { to: '/admin-org/modules', label: 'Modules pédagogiques' },
     { to: '/admin-org/incubes', label: 'Incubés' },
     { to: '/admin-org/codes', label: 'Codes d\'invitation' },
-    { to: '/admin-org/promotions', label: 'Promotions' },
     { to: '/admin-org/coachs', label: 'Coachs' },
-    { to: '/admin-org/modules', label: 'Modules pédagogiques' },
+    { to: '/admin-org/matrixage', label: 'Matrixage' },
+    { to: '/admin-org/certificateurs', label: 'Certificateurs' },
     { to: '/admin-org/toolbox', label: 'Boîte à outils' },
   ],
   COACH: [
     { to: '/coach', label: 'Tableau de bord' },
+  ],
+  CERTIFICATEUR: [
+    { to: '/certificateur', label: 'Tableau de bord' },
+    { to: '/certificateur/questions', label: 'Banque de questions' },
   ],
 };
 

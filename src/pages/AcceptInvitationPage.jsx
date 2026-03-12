@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { validateEmail, validateRequired } from '../lib/validation';
 
 /**
  * Page "Accepter une invitation" : formulaire réservé aux incubés ayant un code.
@@ -22,8 +24,10 @@ function AcceptInvitationPage() {
 
   const handleValidateCode = async (e) => {
     e.preventDefault();
-    if (!code.trim()) {
-      setError('Saisissez le code d\'invitation.');
+    const codeErr = validateRequired(code, 'Code d\'invitation');
+    if (codeErr) {
+      setError(codeErr);
+      toast.error(codeErr);
       return;
     }
     setError('');
@@ -32,20 +36,27 @@ function AcceptInvitationPage() {
       const { data, error: rpcError } = await supabase.rpc('validate_invitation_code', { p_code: code.trim() });
       if (rpcError) {
         setCodeValidated(null);
-        setError('Code invalide ou expiré. Vérifiez le code reçu par e-mail.');
+        const msg = 'Code invalide ou expiré. Vérifiez le code reçu par e-mail.';
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
       if (data && data.valid) {
         setCodeValidated({ org_name: data.org_name || 'votre organisation' });
         setError('');
+        toast.success('Code validé');
       } else {
         setCodeValidated(null);
-        setError('Code invalide ou expiré.');
+        const msg = 'Code invalide ou expiré.';
+        setError(msg);
+        toast.error(msg);
       }
     } catch (_) {
       setCodeValidated(null);
-      setError('Impossible de valider le code. Réessayez.');
+      const msg = 'Impossible de valider le code. Réessayez.';
+      setError(msg);
+      toast.error(msg);
     }
     setLoading(false);
   };
@@ -53,12 +64,14 @@ function AcceptInvitationPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (password !== confirmPassword) {
-      setError('Les deux mots de passe ne correspondent pas.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.');
+    const nameErr = validateRequired(fullName, 'Nom complet');
+    const emailErr = validateEmail(email);
+    const pwdErr = password.length < 6 ? 'Le mot de passe doit contenir au moins 6 caractères.' : null;
+    const confirmErr = password !== confirmPassword ? 'Les deux mots de passe ne correspondent pas.' : null;
+    if (nameErr || emailErr || pwdErr || confirmErr) {
+      const msg = nameErr || emailErr || pwdErr || confirmErr;
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setLoading(true);
@@ -70,6 +83,7 @@ function AcceptInvitationPage() {
       });
       if (signUpError) {
         setError(signUpError.message);
+        toast.error(signUpError.message);
         setLoading(false);
         return;
       }
@@ -78,13 +92,18 @@ function AcceptInvitationPage() {
         p_full_name: fullName.trim(),
       });
       if (acceptError || !acceptData?.success) {
-        setError(acceptData?.error || acceptError?.message || 'Erreur lors de l\'activation du compte.');
+        const msg = acceptData?.error || acceptError?.message || 'Erreur lors de l\'activation du compte.';
+        setError(msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
+      toast.success('Compte créé avec succès');
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Une erreur est survenue.');
+      const msg = err.message || 'Une erreur est survenue.';
+      setError(msg);
+      toast.error(msg);
     }
     setLoading(false);
   };
@@ -156,7 +175,7 @@ function AcceptInvitationPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-cerip-forest mb-1.5 uppercase tracking-wide">Adresse e-mail</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="exemple@mail.com" className="w-full border border-cerip-forest/20 rounded-xl pl-3 pr-4 py-3 text-sm text-cerip-forest focus:outline-none focus:ring-2 focus:ring-cerip-lime/50 focus:border-cerip-lime transition" required />
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="votre@email.com" className="w-full border border-cerip-forest/20 rounded-xl pl-3 pr-4 py-3 text-sm text-cerip-forest focus:outline-none focus:ring-2 focus:ring-cerip-lime/50 focus:border-cerip-lime transition" required />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-cerip-forest mb-1.5 uppercase tracking-wide">Mot de passe</label>

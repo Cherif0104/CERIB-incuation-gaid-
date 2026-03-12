@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
+import { startUserActionGuard } from '../lib/userActionGuard';
 import MetricCard from '../components/MetricCard';
 
 const STATUS_LABELS = {
@@ -104,6 +106,7 @@ function AdminOrgIncubesPage() {
     setError(null);
     setCreateResultPassword(null);
     setCreateResultEmailSent(null);
+    startUserActionGuard(6000);
     const { data, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
       body: {
         email,
@@ -116,14 +119,17 @@ function AdminOrgIncubesPage() {
     setCreating(false);
     if (fnErr) {
       setError(fnErr.message || 'Erreur lors de la création du compte.');
+      toast.error(fnErr.message || 'Erreur lors de la création du compte.');
       return;
     }
     if (!data?.success) {
       setError(data?.error || 'Erreur lors de la création du compte.');
+      toast.error(data?.error || 'Erreur lors de la création du compte.');
       return;
     }
+    toast.success('Incubé créé');
     if (data.temporary_password) setCreateResultPassword(data.temporary_password);
-    if (data.email_sent) setCreateResultEmailSent(email);
+    setCreateResultEmailSent(email); // Toujours afficher l'email pour communiquer les identifiants
     setCreateForm({ full_name: '', email: '', password: '' });
     setRefreshKey((k) => k + 1);
   };
@@ -182,7 +188,7 @@ function AdminOrgIncubesPage() {
                       type="email"
                       value={createForm.email}
                       onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                      placeholder="incube@exemple.sn"
+                      placeholder="incube@votre-organisation.com"
                       className="rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime focus:border-cerip-forest/30"
                       required
                     />
@@ -199,11 +205,20 @@ function AdminOrgIncubesPage() {
                   />
                 </label>
                 {createResultPassword && (
-                  <div className="rounded-lg border border-cerip-forest/15 bg-cerip-forest-light/40 px-3 py-2 space-y-1">
-                    <p className="text-xs font-medium text-cerip-forest/80">Mot de passe temporaire à communiquer</p>
-                    <p className="text-sm font-mono text-cerip-forest break-all select-all">{createResultPassword}</p>
+                  <div className="rounded-lg border-2 border-cerip-lime/50 bg-cerip-forest-light/40 px-3 py-2 space-y-2">
+                    <p className="text-xs font-semibold text-cerip-forest">✓ Incubé créé — Communiquez ces identifiants</p>
+                    <p className="text-xs font-medium text-cerip-forest/80">Email : {createResultEmailSent}</p>
+                    <p className="text-xs font-medium text-cerip-forest/80">Mot de passe temporaire :</p>
+                    <p className="text-sm font-mono text-cerip-forest break-all select-all bg-white/60 px-2 py-1 rounded">{createResultPassword}</p>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(`Email: ${createResultEmailSent}\nMot de passe: ${createResultPassword}`)}
+                      className="text-xs font-medium text-cerip-lime hover:underline"
+                    >
+                      Copier email + mot de passe
+                    </button>
                     {createResultEmailSent && (
-                      <p className="text-xs text-cerip-forest/80">Un email a été envoyé à {createResultEmailSent} avec les instructions de connexion.</p>
+                      <p className="text-xs text-cerip-forest/70">Si la connexion échoue, exécutez : npm run reset:password {createResultEmailSent} NouveauMotDePasse</p>
                     )}
                   </div>
                 )}

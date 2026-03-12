@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 import MetricCard from '../components/MetricCard';
 
@@ -67,8 +68,11 @@ function CertificateurDashboard() {
       status: 'SCHEDULED',
     });
     setCreating(false);
-    if (insErr) setError(insErr.message);
-    else {
+    if (insErr) {
+      setError(insErr.message);
+      toast.error(insErr.message);
+    } else {
+      toast.success('Session créée');
       setForm({ name: '', start_at: '', end_at: '' });
       await fetchSessions();
     }
@@ -83,8 +87,13 @@ function CertificateurDashboard() {
       .update({ status: nextStatus })
       .eq('id', session.id);
     setTogglingId(null);
-    if (upErr) setError(upErr.message);
-    else await fetchSessions();
+    if (upErr) {
+      setError(upErr.message);
+      toast.error(upErr.message);
+    } else {
+      toast.success(session.status === 'OPEN' ? 'Session fermée' : 'Session ouverte');
+      await fetchSessions();
+    }
   };
 
   const handleDeleteSession = async (session) => {
@@ -93,8 +102,13 @@ function CertificateurDashboard() {
     setError(null);
     const { error: delErr } = await supabase.from('certification_sessions').delete().eq('id', session.id);
     setDeletingSessionId(null);
-    if (delErr) setError(delErr.message);
-    else await fetchSessions();
+    if (delErr) {
+      setError(delErr.message);
+      toast.error(delErr.message);
+    } else {
+      toast.success('Session supprimée');
+      await fetchSessions();
+    }
   };
 
   const candidatesPending = candidates.filter((c) => c.exam_status === 'PENDING' && !c.exam_result).length;

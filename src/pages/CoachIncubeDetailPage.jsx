@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabaseClient';
 
 const STATUS_LABELS = {
@@ -138,9 +139,11 @@ function CoachIncubeDetailPage() {
     const { error: upErr } = await supabase.from('incubes').update({ global_status: 'COACH_VALIDATED' }).eq('id', incube.id);
     if (upErr) {
       setError(upErr.message);
+      toast.error(upErr.message);
       setValidating(false);
       return;
     }
+    toast.success('Clé 1 validée');
     await supabase.from('certification_candidates').insert({
       incube_id: incube.id,
       organisation_id: incube.organisation_id,
@@ -161,8 +164,11 @@ function CoachIncubeDetailPage() {
       { incube_id: incubeId, mois_num: inspectionMois, coach_id: profile.id, comment: inspectionComment || null },
       { onConflict: 'incube_id,mois_num' }
     );
-    if (err) setError(err.message);
-    else {
+    if (err) {
+      setError(err.message);
+      toast.error(err.message);
+    } else {
+      toast.success('Mois validé');
       setMoisValidated((s) => new Set([...s, inspectionMois]));
       setInspectionComment('');
     }
@@ -190,8 +196,11 @@ function CoachIncubeDetailPage() {
       max_rdv: paramForm.max_rdv,
     }).eq('id', incubeId);
     setSavingParam(false);
-    if (err) setError(err.message);
-    else {
+    if (err) {
+      setError(err.message);
+      toast.error(err.message);
+    } else {
+      toast.success('Paramètres enregistrés');
       setIncube((prev) => (prev ? { ...prev, ...paramForm } : null));
       setParamModalOpen(false);
     }
@@ -208,8 +217,11 @@ function CoachIncubeDetailPage() {
       from_incube: false,
     });
     setSendingMessage(false);
-    if (err) setError(err.message);
-    else {
+    if (err) {
+      setError(err.message);
+      toast.error(err.message);
+    } else {
+      toast.success('Message envoyé');
       setContactMessage('');
       const { data } = await supabase.from('coach_incube_messages').select('id, body, from_incube, created_at').eq('incube_id', incubeId).eq('coach_id', profile.id).order('created_at', { ascending: true });
       setMessagesList(data ?? []);
@@ -234,8 +246,11 @@ function CoachIncubeDetailPage() {
       meeting_link: rdvLink || null,
     });
     setSendingRdv(false);
-    if (err) setError(err.message);
-    else {
+    if (err) {
+      setError(err.message);
+      toast.error(err.message);
+    } else {
+      toast.success('RDV programmé');
       setRdvObjectif('');
       setRdvTravailPrep('');
       setRdvDate('');

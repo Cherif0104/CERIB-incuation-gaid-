@@ -123,8 +123,50 @@ function AdminOrgDashboard() {
                 animationDelay={180}
               />
             </div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-cerip-forest/70 mb-4 mt-8">Accès rapides</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-cerip-forest/70 mb-4">Parcours & formation</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
+                <h2 className="text-base font-semibold text-cerip-forest mb-2">
+                  Promotions (cohortes)
+                </h2>
+                <p className="text-xs text-cerip-forest/70 mb-2">
+                  Sessions/cohortes avec dates de démarrage. Créez-les d&apos;abord, puis les modules.
+                </p>
+                <Link
+                  to="/admin-org/promotions"
+                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
+                >
+                  Gérer les promotions →
+                </Link>
+              </div>
+              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
+                <h2 className="text-base font-semibold text-cerip-forest mb-2">
+                  Modules pédagogiques
+                </h2>
+                <p className="text-xs text-cerip-forest/70 mb-2">
+                  Supports de cours (texte, vidéo, quiz) par promotion. Les incubés voient les modules de leur promotion.
+                </p>
+                <Link
+                  to="/admin-org/modules"
+                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
+                >
+                  Gérer les modules →
+                </Link>
+              </div>
+              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
+                <h2 className="text-base font-semibold text-cerip-forest mb-2">
+                  Boîte à outils
+                </h2>
+                <p className="text-xs text-cerip-forest/70 mb-2">
+                  Documents téléchargeables (PDF, modèles) pour les incubés.
+                </p>
+                <Link
+                  to="/admin-org/toolbox"
+                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
+                >
+                  Gérer les documents →
+                </Link>
+              </div>
               <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
                 <h2 className="text-base font-semibold text-cerip-forest mb-2">
                   Incubés
@@ -141,20 +183,6 @@ function AdminOrgDashboard() {
               </div>
               <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
                 <h2 className="text-base font-semibold text-cerip-forest mb-2">
-                  Promotions
-                </h2>
-                <p className="text-xs text-cerip-forest/70 mb-2">
-                  Créez et gérez les promotions (Start-Session, Incubation, etc.).
-                </p>
-                <Link
-                  to="/admin-org/promotions"
-                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
-                >
-                  Voir les promotions →
-                </Link>
-              </div>
-              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
-                <h2 className="text-base font-semibold text-cerip-forest mb-2">
                   Coachs
                 </h2>
                 <p className="text-xs text-cerip-forest/70 mb-2">
@@ -165,20 +193,6 @@ function AdminOrgDashboard() {
                   className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
                 >
                   Voir les coachs →
-                </Link>
-              </div>
-              <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">
-                <h2 className="text-base font-semibold text-cerip-forest mb-2">
-                  Modules pédagogiques
-                </h2>
-                <p className="text-xs text-cerip-forest/70 mb-2">
-                  Créez les parcours et contenus par phase (P1/P2) et par mois (1–4) pour incubés et coachs.
-                </p>
-                <Link
-                  to="/admin-org/modules"
-                  className="text-sm font-medium text-cerip-lime hover:text-cerip-lime-dark hover:underline"
-                >
-                  Gérer les modules →
                 </Link>
               </div>
               <div className="dashboard-card bg-white rounded-2xl shadow-sm border border-cerip-forest/10 p-5 hover:shadow-md hover:border-cerip-forest/15 transition-all duration-300">

@@ -29,7 +29,7 @@ Dans **Settings** → **Environment Variables**, ajoute :
 | `VITE_SUPABASE_URL` | L’URL de ton projet Supabase (ex. `https://xxxxx.supabase.co`) | Production, Preview |
 | `VITE_SUPABASE_ANON_KEY` | La clé **anon** (publique) du projet Supabase (Settings → API) | Production, Preview |
 
-Ne pas mettre la clé **service_role** sur Vercel (réservée au script seed en local).
+**Variables réservées au local** (ne pas sur Vercel) : `SUPABASE_DB_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Ne jamais exposer la clé **service_role**.
 
 Pour l’envoi d’email à la création de compte (Edge Function **create-platform-user**), configurer les secrets côté Supabase : voir **`docs/edge-functions-email.md`** (RESEND_API_KEY, PLATFORM_URL, etc.).
 

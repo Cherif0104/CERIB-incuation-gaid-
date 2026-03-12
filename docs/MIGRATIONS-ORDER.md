@@ -43,6 +43,7 @@ Le MCP Supabase du projet est en `--read-only`, donc les migrations doivent êtr
 | 11 | `migration-modules-extensible.sql` | Contraintes type/parcours_phase étendues sur learning_modules |
 | 12 | `migration-learning-modules-promotion-formateur.sql` | Colonnes learning_modules : promotion_id, formateur_id (évite l’erreur « column promotion_id does not exist ») |
 | 13 | `migration-vision-client-learning-modules-mois.sql` | Colonnes mois sur learning_modules (si applicable) |
+| 13b | `migration-promotions-start-date.sql` | Colonnes promotions : start_date, end_date (dates de démarrage des cohortes) |
 | 14 | `migration-learning-modules-admin-org-delete.sql` | RLS : Admin Org peut supprimer/modifier les modules de son org (basé sur staff_users) |
 
 ---

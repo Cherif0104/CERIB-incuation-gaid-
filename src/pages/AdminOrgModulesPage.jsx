@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 /**
@@ -11,6 +12,8 @@ import { supabase } from '../lib/supabaseClient';
  */
 function AdminOrgModulesPage() {
   const { profile } = useOutletContext() || {};
+  const [searchParams] = useSearchParams();
+  const promotionFilter = searchParams.get('promotion') || '';
   const orgId = profile?.organisation_id;
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,11 +32,12 @@ function AdminOrgModulesPage() {
 
   const fetchModules = async () => {
     if (!orgId) return;
-    const { data, error: e } = await supabase
+    let q = supabase
       .from('learning_modules')
       .select('id, title, description, sort_order, type, parcours_phase, mois, payload, promotion_id, formateur_id')
-      .eq('organisation_id', orgId)
-      .order('sort_order');
+      .eq('organisation_id', orgId);
+    if (promotionFilter) q = q.eq('promotion_id', promotionFilter);
+    const { data, error: e } = await q.order('sort_order');
     if (!e) setModules(data || []);
   };
 
@@ -41,7 +45,7 @@ function AdminOrgModulesPage() {
     if (!orgId) return;
     setLoading(true);
     fetchModules().finally(() => setLoading(false));
-  }, [orgId]);
+  }, [orgId, promotionFilter]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -57,7 +61,20 @@ function AdminOrgModulesPage() {
   }, [orgId]);
 
   const openAdd = () => {
-    setForm({ title: '', description: '', type: 'text', parcours_phase: 'P1', phase_custom: '', mois: '', sort_order: modules.length, promotion_id: '', formateur_id: '', content_body: '', video_url: '', document_url: '' });
+    setForm({
+      title: '',
+      description: '',
+      type: 'text',
+      parcours_phase: 'P1',
+      phase_custom: '',
+      mois: '',
+      sort_order: modules.length,
+      promotion_id: promotionFilter || '',
+      formateur_id: '',
+      content_body: '',
+      video_url: '',
+      document_url: '',
+    });
     setVideoFile(null);
     setDocumentFile(null);
     setModal('add');
@@ -99,7 +116,9 @@ function AdminOrgModulesPage() {
     e.preventDefault();
     if (!orgId || !form.title.trim()) return;
     if (modal === 'add' && (!form.promotion_id || !form.formateur_id)) {
-      setError('Veuillez sélectionner une promotion et un formateur.');
+      const msg = 'Veuillez sélectionner une promotion et un formateur.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setSaving(true);
@@ -132,6 +151,7 @@ function AdminOrgModulesPage() {
       const { data: inserted, error: ins } = await supabase.from('learning_modules').insert(payload).select('id').single();
       if (ins) {
         setError(ins.message);
+        toast.error(ins.message);
         setSaving(false);
         return;
       }
@@ -141,6 +161,7 @@ function AdminOrgModulesPage() {
       const { error: upErr } = await supabase.from('learning_modules').update(up).eq('id', modal);
       if (upErr) {
         setError(upErr.message);
+        toast.error(upErr.message);
         setSaving(false);
         return;
       }
@@ -164,6 +185,7 @@ function AdminOrgModulesPage() {
       await supabase.from('learning_modules').update({ payload: updatePayload }).eq('id', moduleId);
     }
     setSaving(false);
+    toast.success(modal === 'add' ? 'Module créé' : 'Module mis à jour');
     closeModuleModal();
     fetchModules();
   };
@@ -207,10 +229,13 @@ function AdminOrgModulesPage() {
     const { error } = await supabase.from('learning_modules').delete().eq('id', id);
     setDeletingId(null);
     if (error) {
-      setError('Erreur lors de la suppression : ' + error.message);
+      const msg = 'Erreur lors de la suppression : ' + error.message;
+      setError(msg);
+      toast.error(msg);
       document.querySelector('.admin-modules-error')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
+    toast.success('Module supprimé');
     if (modal === id) closeModuleModal();
     await fetchModules();
   };
@@ -371,8 +396,31 @@ function AdminOrgModulesPage() {
       <header className="px-6 py-4 border-b border-cerip-forest/10 bg-white">
         <h1 className="text-lg font-semibold text-cerip-forest">Modules pédagogiques</h1>
         <p className="text-xs text-cerip-forest/70 mt-0.5">
-          Créez les parcours et contenus de formation (texte, vidéo, quiz) par phase (P1/P2) et par mois (1–4). Les modules et mois définis ici sont ceux affichés dans le portail incubé et le suivi coach.
+          Créez les supports de cours (texte, vidéo, document, quiz) par promotion. Chaque module est lié à une promotion : les incubés assignés à cette promotion verront ces contenus dans leur parcours.
         </p>
+        {promotions.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-cerip-forest/70">Filtrer par promotion :</span>
+            <Link
+              to="/admin-org/modules"
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${!promotionFilter ? 'bg-cerip-lime text-white' : 'bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/15'}`}
+            >
+              Toutes
+            </Link>
+            {promotions.map((p) => (
+              <Link
+                key={p.id}
+                to={`/admin-org/modules?promotion=${encodeURIComponent(p.id)}`}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${promotionFilter === p.id ? 'bg-cerip-lime text-white' : 'bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/15'}`}
+              >
+                {p.name}
+              </Link>
+            ))}
+            <Link to="/admin-org/promotions" className="text-xs text-cerip-lime hover:underline ml-2">
+              Gérer les promotions →
+            </Link>
+          </div>
+        )}
       </header>
       <main className="flex-1 p-6">
         {error && (

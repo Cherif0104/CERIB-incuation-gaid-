@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { startUserActionGuard } from '../lib/userActionGuard';
 import { LEGAL_FORMS } from '../data/legalForms';
 import { SECTORS } from '../data/sectors';
 import { SENEGAL_GEO, getDepartmentsByRegion, getCommunesByDepartment } from '../data/senegalGeo';
@@ -10,6 +11,8 @@ function SuperAdminOrgDetailPage() {
   const navigate = useNavigate();
   const [organisation, setOrganisation] = useState(null);
   const [stats, setStats] = useState({ incubes: 0, coachs: 0, promotions: 0, modules: 0 });
+  const [promotionsList, setPromotionsList] = useState([]);
+  const [modulesList, setModulesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotaForm, setQuotaForm] = useState({ quota_incubes: 0, quota_coachs: 0 });
@@ -34,6 +37,7 @@ function SuperAdminOrgDetailPage() {
   const [creatingAdmin, setCreatingAdmin] = useState(false);
   const [createAdminPasswordResult, setCreateAdminPasswordResult] = useState(null);
   const [createAdminEmailSent, setCreateAdminEmailSent] = useState(null);
+  const [createAdminInvitationLink, setCreateAdminInvitationLink] = useState(null);
   const [deletingOrg, setDeletingOrg] = useState(false);
 
   useEffect(() => {
@@ -75,11 +79,13 @@ function SuperAdminOrgDetailPage() {
           account_type: org.account_type || 'STANDARD',
         });
 
-        const [r1, r2, r3, r4] = await Promise.all([
+        const [r1, r2, r3, r4, r5, r6] = await Promise.all([
           supabase.from('incubes').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId),
           supabase.from('staff_users').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId).eq('role', 'COACH'),
           supabase.from('promotions').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId),
           supabase.from('learning_modules').select('*', { count: 'exact', head: true }).eq('organisation_id', orgId),
+          supabase.from('promotions').select('id, name, start_date, parcours_type').eq('organisation_id', orgId).order('name'),
+          supabase.from('learning_modules').select('id, title, promotion_id, parcours_phase, mois').eq('organisation_id', orgId).order('sort_order'),
         ]);
         setStats({
           incubes: r1.count ?? 0,
@@ -87,6 +93,8 @@ function SuperAdminOrgDetailPage() {
           promotions: r3.count ?? 0,
           modules: r4.count ?? 0,
         });
+        setPromotionsList(r5.data ?? []);
+        setModulesList(r6.data ?? []);
       } catch (err) {
         setError(err?.message || 'Erreur lors du chargement.');
         setOrganisation(null);
@@ -212,8 +220,16 @@ function SuperAdminOrgDetailPage() {
     setError(null);
     setCreateAdminPasswordResult(null);
     setCreateAdminEmailSent(null);
+    setCreateAdminInvitationLink(null);
+    startUserActionGuard(6000);
     const adminEmail = createAdminForm.email.trim().toLowerCase();
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setError('Session expirée. Veuillez vous reconnecter.');
+        setCreatingAdmin(false);
+        return;
+      }
       const { data, error: fnErr } = await supabase.functions.invoke('create-platform-user', {
         body: {
           email: adminEmail,
@@ -222,14 +238,22 @@ function SuperAdminOrgDetailPage() {
           role: 'ADMIN_ORG',
           organisation_id: organisation.id,
         },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
-      if (fnErr) {
-        setError(fnErr.message || 'Erreur lors de la création du compte.');
-        setCreatingAdmin(false);
-        return;
-      }
-      if (!data?.success) {
-        setError(data?.error || 'Erreur lors de la création du compte.');
+      if (fnErr || !data?.success) {
+        const fullName = (createAdminForm.full_name || '').trim() || null;
+        const invParams = { org_id: organisation.id, email: adminEmail };
+        if (fullName) invParams.full_name = fullName;
+        const { data: invData, error: invErr } = await supabase.rpc('invite_admin', invParams);
+        if (!invErr && invData?.success && invData?.token) {
+          const invLink = `${window.location.origin}/accept-admin-invitation?token=${encodeURIComponent(invData.token)}`;
+          setCreateAdminInvitationLink(invLink);
+          setCreateAdminEmailSent(adminEmail);
+          setCreateAdminForm({ email: '', full_name: '', password: '' });
+          setCreatingAdmin(false);
+          return;
+        }
+        setError(fnErr?.message || data?.error || 'Erreur lors de la création du compte. Utilisez l\'invitation par lien ci-dessous.');
         setCreatingAdmin(false);
         return;
       }
@@ -239,6 +263,20 @@ function SuperAdminOrgDetailPage() {
       if (data.email_sent) setCreateAdminEmailSent(adminEmail);
       setCreateAdminForm({ email: '', full_name: '', password: '' });
     } catch (err) {
+      try {
+        const fullName = (createAdminForm.full_name || '').trim() || null;
+        const invParams = { org_id: organisation.id, email: adminEmail };
+        if (fullName) invParams.full_name = fullName;
+        const { data: invData, error: invErr } = await supabase.rpc('invite_admin', invParams);
+        if (!invErr && invData?.success && invData?.token) {
+          const invLink = `${window.location.origin}/accept-admin-invitation?token=${encodeURIComponent(invData.token)}`;
+          setCreateAdminInvitationLink(invLink);
+          setCreateAdminEmailSent(adminEmail);
+          setCreateAdminForm({ email: '', full_name: '', password: '' });
+          setCreatingAdmin(false);
+          return;
+        }
+      } catch (_) {}
       setError(err?.message || 'Erreur lors de la création du compte.');
     }
     setCreatingAdmin(false);
@@ -253,11 +291,10 @@ function SuperAdminOrgDetailPage() {
     setInvitingAdmin(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await supabase.rpc('create_admin_invitation', {
-        p_organisation_id: organisation.id,
-        p_email: adminInvite.email.trim(),
-        p_full_name: adminInvite.full_name.trim() || null,
-      });
+      const fullName = adminInvite.full_name.trim() || null;
+      const invParams = { org_id: organisation.id, email: adminInvite.email.trim() };
+      if (fullName) invParams.full_name = fullName;
+      const { data, error: rpcError } = await supabase.rpc('invite_admin', invParams);
       if (rpcError || !data?.success) {
         setError(data?.error || rpcError?.message || 'Erreur lors de la création de l’invitation administrateur.');
         setInvitingAdmin(false);
@@ -523,6 +560,22 @@ function SuperAdminOrgDetailPage() {
                   {creatingAdmin ? 'Création…' : 'Créer le compte'}
                 </button>
               </form>
+              {createAdminInvitationLink && (
+                <div className="mt-2 rounded-lg border border-cerip-forest/15 bg-cerip-forest-light/40 px-3 py-2 space-y-2">
+                  <p className="text-xs font-medium text-cerip-forest/80">Lien d&apos;invitation (fallback)</p>
+                  <p className="text-sm font-mono text-cerip-forest break-all select-all">{createAdminInvitationLink}</p>
+                  {createAdminEmailSent && (
+                    <p className="text-xs text-cerip-forest/80">Envoyez ce lien à {createAdminEmailSent} pour qu&apos;il crée son compte.</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(createAdminInvitationLink)}
+                    className="text-xs font-medium text-cerip-lime hover:underline"
+                  >
+                    Copier
+                  </button>
+                </div>
+              )}
               {createAdminPasswordResult && (
                 <div className="mt-2 rounded-lg border border-cerip-forest/15 bg-cerip-forest-light/40 px-3 py-2 space-y-1">
                   <p className="text-xs font-medium text-cerip-forest/80">Mot de passe temporaire à communiquer</p>
@@ -585,14 +638,49 @@ function SuperAdminOrgDetailPage() {
               <p className="text-xl font-semibold text-cerip-forest">{stats.coachs}</p>
             </div>
             <div className="rounded-lg border border-cerip-forest/10 p-3">
-              <p className="text-xs text-cerip-forest/70">Promotions</p>
+              <p className="text-xs text-cerip-forest/70">Promotions (cohortes)</p>
               <p className="text-xl font-semibold text-cerip-forest">{stats.promotions}</p>
             </div>
             <div className="rounded-lg border border-cerip-forest/10 p-3">
-              <p className="text-xs text-cerip-forest/70">Modules</p>
+              <p className="text-xs text-cerip-forest/70">Modules pédagogiques</p>
               <p className="text-xl font-semibold text-cerip-forest">{stats.modules}</p>
             </div>
           </div>
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm border border-cerip-forest/10 overflow-hidden">
+          <h2 className="text-sm font-semibold text-cerip-forest px-4 py-3 border-b border-cerip-forest/10">Parcours & formation</h2>
+          <p className="text-xs text-cerip-forest/70 px-4 py-2">
+            Les promotions (cohortes) définissent les sessions. Les modules pédagogiques sont créés par promotion. Les incubés assignés à une promotion voient les modules de cette promotion dans leur parcours. L&apos;Admin Org gère promotions et modules.
+          </p>
+          {promotionsList.length > 0 && (
+            <div className="px-4 pb-4">
+              <p className="text-xs font-medium text-cerip-forest/80 mb-2">Promotions</p>
+              <ul className="space-y-1 text-sm text-cerip-forest/90">
+                {promotionsList.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2">
+                    <span className="font-medium">{p.name}</span>
+                    <span className="text-xs text-cerip-forest/60">({p.parcours_type})</span>
+                    {p.start_date && <span className="text-xs text-cerip-forest/60">— Début {new Date(p.start_date).toLocaleDateString('fr-FR')}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {modulesList.length > 0 && (
+            <div className="px-4 pb-4">
+              <p className="text-xs font-medium text-cerip-forest/80 mb-2">Modules (aperçu)</p>
+              <ul className="space-y-0.5 text-sm text-cerip-forest/90 max-h-32 overflow-y-auto">
+                {modulesList.slice(0, 10).map((m) => (
+                  <li key={m.id} className="truncate">
+                    {m.title}
+                    {m.mois != null && <span className="text-xs text-cerip-forest/60 ml-1">· Mois {m.mois}</span>}
+                  </li>
+                ))}
+                {modulesList.length > 10 && <li className="text-xs text-cerip-forest/60">… et {modulesList.length - 10} autre(s)</li>}
+              </ul>
+            </div>
+          )}
         </section>
 
         <section className="bg-white rounded-xl shadow-sm border border-cerip-forest/10 overflow-hidden">

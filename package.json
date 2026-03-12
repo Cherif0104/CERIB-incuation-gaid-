@@ -8,18 +8,33 @@
     "build": "node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "seed:dev": "node scripts/seed-dev-accounts.mjs",
+    "create:super-admin": "node scripts/create-super-admin.mjs",
+    "reset:password": "node scripts/reset-user-password.mjs",
+    "fix:rls-login": "node scripts/fix-rls-login.mjs",
+    "setup:new-project": "node scripts/setup-new-project.mjs",
+    "copy:migrations": "node scripts/copy-migrations-to-clipboard.mjs",
+    "migrations:generate": "node scripts/generate-full-migration.mjs",
+    "db:migrate": "node scripts/run-migrations.mjs",
+    "db:seed": "node scripts/run-seeds.mjs",
+    "db:setup": "node scripts/run-migrations.mjs && node scripts/run-seeds.mjs",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "lint:fix": "node ./node_modules/eslint/bin/eslint.js . --fix",
     "test": "node ./node_modules/vitest/vitest.mjs run",
-    "check": "npm run lint && npm run test && npm run build"
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run test && npm run build",
+    "functions:deploy": "supabase functions deploy create-platform-user",
+    "build:locations": "node build-senegal-locations.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.0.2"
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.0.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -30,6 +45,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.3.0",
     "jsdom": "^28.1.0",
+    "pg": "^8.20.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "vite": "^6.0.0",
