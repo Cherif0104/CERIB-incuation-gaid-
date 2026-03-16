@@ -90,11 +90,16 @@ function IncubeModulePage() {
       if (choice?.is_correct) correct += 1;
     });
     const scorePct = total ? Math.round((correct / total) * 100 * 100) / 100 : 0;
+    const passed = scorePct >= REQUIRED_QUIZ_SCORE_PCT;
     setQuizSubmitting(true);
-    const ok = await markCompleted(scorePct);
+    // Ne marquer complété que si le quiz est réussi (≥ 70 %)
+    const ok = passed ? await markCompleted(scorePct) : true;
     setQuizSubmitting(false);
     if (ok) {
-      setQuizResult({ scorePct, passed: scorePct >= REQUIRED_QUIZ_SCORE_PCT });
+      setQuizResult({ scorePct, passed });
+      if (!passed) {
+        toast.error(`Score insuffisant (${scorePct} %). Il faut au moins ${REQUIRED_QUIZ_SCORE_PCT} % pour débloquer l'étape suivante.`);
+      }
     } else {
       toast.error('Erreur lors de l\'enregistrement');
     }

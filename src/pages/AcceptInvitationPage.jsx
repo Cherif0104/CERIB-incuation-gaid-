@@ -10,6 +10,8 @@ import { validateEmail, validateRequired } from '../lib/validation';
  * 2) Si valide : formulaire nom + email + mot de passe → signUp puis accept_invitation (RPC)
  * Le code peut être prérempli via l'URL : /accept-invitation?code=xxx
  */
+const PENDING_INVITATION_KEY = 'savana_pending_invitation';
+
 function AcceptInvitationPage() {
   const [searchParams] = useSearchParams();
   const [code, setCode] = useState(() => searchParams.get('code') || '');
@@ -33,7 +35,7 @@ function AcceptInvitationPage() {
     setError('');
     setLoading(true);
     try {
-      const { data, error: rpcError } = await supabase.rpc('validate_invitation_code', { p_code: code.trim() });
+      const { data, error: rpcError } = await supabase.rpc('validate_invitation_code', { p_code: code.trim().toLowerCase() });
       if (rpcError) {
         setCodeValidated(null);
         const msg = 'Code invalide ou expiré. Vérifiez le code reçu par e-mail.';
@@ -76,8 +78,8 @@ function AcceptInvitationPage() {
     }
     setLoading(true);
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
         password,
         options: { data: { full_name: fullName.trim() } },
       });
@@ -87,19 +89,33 @@ function AcceptInvitationPage() {
         setLoading(false);
         return;
       }
-      const { data: acceptData, error: acceptError } = await supabase.rpc('accept_invitation', {
-        p_code: code.trim(),
-        p_full_name: fullName.trim(),
-      });
-      if (acceptError || !acceptData?.success) {
-        const msg = acceptData?.error || acceptError?.message || 'Erreur lors de l\'activation du compte.';
-        setError(msg);
-        toast.error(msg);
-        setLoading(false);
-        return;
+      // Si l'utilisateur a une session (email non confirmé désactivé), appeler accept_invitation immédiatement
+      const hasSession = !!signUpData?.session;
+      if (hasSession) {
+        const { data: acceptData, error: acceptError } = await supabase.rpc('accept_invitation', {
+          p_code: code.trim().toLowerCase(),
+          p_full_name: fullName.trim(),
+        });
+        if (acceptError || !acceptData?.success) {
+          const msg = acceptData?.error || acceptError?.message || 'Erreur lors de l\'activation du compte.';
+          setError(msg);
+          toast.error(msg);
+          setLoading(false);
+          return;
+        }
+        toast.success('Compte créé avec succès');
+        setSuccess(true);
+      } else {
+        // Confirmation email requise : stocker l'invitation pour compléter à la première connexion
+        try {
+          localStorage.setItem(PENDING_INVITATION_KEY, JSON.stringify({
+            code: code.trim().toLowerCase(),
+            full_name: fullName.trim(),
+          }));
+        } catch (_) {}
+        toast.success('Compte créé. Vérifiez votre e-mail pour confirmer, puis connectez-vous.');
+        setSuccess(true);
       }
-      toast.success('Compte créé avec succès');
-      setSuccess(true);
     } catch (err) {
       const msg = err.message || 'Une erreur est survenue.';
       setError(msg);

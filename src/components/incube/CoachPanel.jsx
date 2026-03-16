@@ -70,7 +70,11 @@ function CoachPanel({
       <div className="p-4 border-b border-cerip-forest/10 flex items-center justify-between shrink-0">
         <div>
           <h3 className="text-lg font-bold text-cerip-forest">Mon coach</h3>
-          {coachName && <span className="text-sm text-cerip-forest/70 block mt-0.5">{coachName}</span>}
+          {coachName ? (
+            <span className="text-sm text-cerip-forest/70 block mt-0.5">{coachName}</span>
+          ) : (
+            <span className="text-sm text-cerip-forest/60 block mt-0.5">Aucun coach assigné. Contacte ton organisation pour être assigné à un coach.</span>
+          )}
         </div>
         {!embeddedPage && onClose && (
           <button type="button" onClick={onClose} className="p-2 rounded-lg text-cerip-forest/70 hover:bg-cerip-forest/10" aria-label="Fermer">
@@ -94,11 +98,16 @@ function CoachPanel({
         ))}
       </div>
       <div className="flex-1 overflow-y-auto p-4 min-h-0">
+        {!coachName && (
+          <div className="rounded-xl bg-cerip-forest/5 border border-cerip-forest/10 p-4 mb-4">
+            <p className="text-sm text-cerip-forest/80">Tu n&apos;as pas encore de coach assigné. Demande à ton organisation (Admin) de t&apos;assigner un coach via le Matrixage. Une fois assigné, tu pourras envoyer des messages, demander des RDV et des sessions de coaching.</p>
+          </div>
+        )}
         {activeTab === 'messages' && (
           <div className="space-y-4">
             <div className="space-y-2 min-h-[120px] max-h-64 overflow-y-auto">
               {messages.length === 0 ? (
-                <p className="text-sm text-cerip-forest/70">Aucun message.</p>
+                <p className="text-sm text-cerip-forest/70">{coachName ? 'Aucun message.' : 'Assignation en attente.'}</p>
               ) : (
                 messages.map((msg) => (
                   <div key={msg.id} className={`text-sm p-2 rounded-lg ${msg.from_incube ? 'bg-cerip-lime/15 ml-4' : 'bg-cerip-forest/10 mr-4'}`}>
@@ -113,12 +122,13 @@ function CoachPanel({
               <textarea
                 value={newMessageBody}
                 onChange={(e) => setNewMessageBody(e.target.value)}
-                placeholder="Message rapide…"
-                className="flex-1 min-h-[60px] px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none"
+                placeholder={coachName ? 'Message rapide…' : 'Assignation en attente'}
+                disabled={!coachName}
+                className="flex-1 min-h-[60px] px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
-                disabled={messageSending || !newMessageBody.trim()}
+                disabled={!coachName || messageSending || !newMessageBody.trim()}
                 onClick={handleSendMessage}
                 className="self-end px-4 py-2 rounded-lg text-sm font-semibold bg-cerip-lime text-cerip-forest hover:bg-cerip-lime-dark disabled:opacity-50"
               >
@@ -130,11 +140,12 @@ function CoachPanel({
               <textarea
                 value={coachMessage}
                 onChange={(e) => setCoachMessage(e.target.value)}
-                placeholder="Précisez votre besoin (optionnel)…"
+                placeholder={coachName ? 'Précisez votre besoin (optionnel)…' : 'Assignation en attente'}
+                disabled={!coachName}
                 rows={2}
-                className="w-full px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none mb-2"
+                className="w-full px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none mb-2 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <button type="button" disabled={sending} onClick={handleDemanderCoaching} className="w-full py-2 rounded-lg text-sm font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20 disabled:opacity-50">
+              <button type="button" disabled={!coachName || sending} onClick={handleDemanderCoaching} className="w-full py-2 rounded-lg text-sm font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20 disabled:opacity-50">
                 {sending ? 'Envoi…' : 'Demander une session'}
               </button>
             </div>
@@ -146,11 +157,12 @@ function CoachPanel({
             <textarea
               value={rdvMessage}
               onChange={(e) => setRdvMessage(e.target.value)}
-              placeholder="Précisez votre besoin si vous le souhaitez…"
+              placeholder={coachName ? 'Précisez votre besoin si vous le souhaitez…' : 'Assignation en attente'}
+              disabled={!coachName}
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <button type="button" disabled={rdvSending} onClick={handleDemanderRdv} className="w-full py-3 rounded-xl text-sm font-semibold bg-cerip-lime text-cerip-forest hover:bg-cerip-lime-dark disabled:opacity-70">
+            <button type="button" disabled={!coachName || rdvSending} onClick={handleDemanderRdv} className="w-full py-3 rounded-xl text-sm font-semibold bg-cerip-lime text-cerip-forest hover:bg-cerip-lime-dark disabled:opacity-70">
               {rdvSending ? 'Envoi…' : 'Envoyer la demande'}
             </button>
           </div>
@@ -183,17 +195,18 @@ function CoachPanel({
         )}
         {activeTab === 'sos' && (
           <div className="space-y-4">
-            <p className="text-sm text-cerip-forest/80">En cas d'urgence, ton coach sera notifié immédiatement.</p>
+            <p className="text-sm text-cerip-forest/80">{coachName ? "En cas d'urgence, ton coach sera notifié immédiatement." : "Assignation en attente. Une fois ton coach assigné, tu pourras envoyer des alertes SOS."}</p>
             <textarea
               value={sosBody}
               onChange={(e) => setSosBody(e.target.value)}
-              placeholder="Décrivez votre urgence…"
+              placeholder={coachName ? 'Décrivez votre urgence…' : 'Assignation en attente'}
+              disabled={!coachName}
               rows={4}
-              className="w-full px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-cerip-forest/20 text-sm resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               type="button"
-              disabled={sosSending || !sosBody.trim()}
+              disabled={!coachName || sosSending || !sosBody.trim()}
               onClick={handleSosUrgence}
               className="w-full py-3 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-70"
             >

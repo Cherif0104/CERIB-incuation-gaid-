@@ -17,6 +17,13 @@ function IncubeModuleCard({ module, progress, unlocked, requiredScore, onOpen, o
       );
     }
     if (module?.type === 'video') {
+      if (done && (module.payload?.video_url || module.payload?.video_file_path)) {
+        return (
+          <button type="button" onClick={() => onOpen(module)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20 transition">
+            Revoir la vidéo
+          </button>
+        );
+      }
       if (done) return <span className="text-xs text-cerip-lime font-medium">Marqué comme vu</span>;
       if (module.payload?.video_url || module.payload?.video_file_path) {
         return (
@@ -47,6 +54,13 @@ function IncubeModuleCard({ module, progress, unlocked, requiredScore, onOpen, o
       );
     }
     if (module?.type === 'document') {
+      if (done && (module.payload?.document_url || module.payload?.document_file_path)) {
+        return (
+          <button type="button" onClick={() => onOpen(module)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20 transition">
+            Revoir le document
+          </button>
+        );
+      }
       if (done) return <span className="text-xs text-cerip-lime font-medium">Document consulté</span>;
       if (module.payload?.document_url || module.payload?.document_file_path) {
         return (

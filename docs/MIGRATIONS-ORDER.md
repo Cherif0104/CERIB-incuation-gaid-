@@ -83,4 +83,8 @@ Si d’autres erreurs apparaissent (modules 400, suppression module Admin Org, u
 - `migration-learning-modules-admin-org-delete.sql`
 - `migration-storage-toolbox-documents.sql`
 
+Si le coach ne voit pas ses incubés assignés : `migration-fix-coach-rls.sql`.
+
+Si l'invitation admin ne fonctionne pas (accept_admin_invitation, invite_admin) : `migration-fix-admin-invitation-rpc.sql`.
+
 Voir aussi `PREPRODUCTION-MIGRATIONS.md` pour le sous-ensemble pré-production.

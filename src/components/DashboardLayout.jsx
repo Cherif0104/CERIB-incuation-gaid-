@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
@@ -45,9 +45,17 @@ const navByRole = {
 function DashboardLayout({ profile, children, onLogout }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [organisation, setOrganisation] = useState(null);
   const role = profile?.role;
   const links = role ? (navByRole[role] || []) : [];
   const fullName = profile?.full_name || profile?.email || 'Utilisateur';
+
+  useEffect(() => {
+    if (!profile?.organisation_id) return;
+    supabase.from('organisations').select('id, name').eq('id', profile.organisation_id).maybeSingle().then(({ data }) => {
+      setOrganisation(data);
+    });
+  }, [profile?.organisation_id]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -73,9 +81,11 @@ function DashboardLayout({ profile, children, onLogout }) {
         }`}
       >
         <div className="flex items-center justify-between h-14 px-4 border-b border-cerip-forest/10">
-          <Link to={links[0]?.to || '/'} className="flex items-center gap-2">
-            <img src="/logo-cerip-senegal.png" alt="CERIP" className="h-8 w-auto object-contain" />
-            <span className="font-semibold text-cerip-forest text-sm">Savana</span>
+          <Link to={links[0]?.to || '/'} className="flex items-center gap-2 min-w-0">
+            <img src="/logo-cerip-senegal.png" alt="CERIP" className="h-8 w-auto object-contain shrink-0" />
+            <span className="font-semibold text-cerip-forest text-sm truncate" title={organisation?.name}>
+              {organisation?.name ? `${organisation.name} · Savana` : 'Savana'}
+            </span>
           </Link>
           <button
             type="button"

@@ -162,22 +162,32 @@ function App() {
                 .eq('auth_user_id', currentSession.user.id)
                 .maybeSingle();
 
-              if (staffProfile) {
-                const p = { ...staffProfile, kind: 'staff' };
-                setProfile(p);
-                await updateOrgSuspension(p);
-              } else {
-                const { data: incubeProfile } = await supabase
-                  .from('incubes')
-                  .select('*')
-                  .eq('auth_user_id', currentSession.user.id)
-                  .maybeSingle();
-                if (incubeProfile) {
-                  const p = { ...incubeProfile, kind: 'incube' };
-                  setProfile(p);
-                  await updateOrgSuspension(p);
+          if (staffProfile) {
+            const p = { ...staffProfile, kind: 'staff' };
+            setProfile(p);
+            await updateOrgSuspension(p);
+          } else {
+            let incubeProfile = (await supabase.from('incubes').select('*').eq('auth_user_id', currentSession.user.id).maybeSingle()).data;
+            // Invitation en attente : compléter accept_invitation après confirmation email
+            if (!incubeProfile) {
+              try {
+                const pending = localStorage.getItem('savana_pending_invitation');
+                if (pending) {
+                  const { code, full_name } = JSON.parse(pending);
+                  const { data: acceptData } = await supabase.rpc('accept_invitation', { p_code: code, p_full_name: full_name });
+                  if (acceptData?.success) {
+                    localStorage.removeItem('savana_pending_invitation');
+                    incubeProfile = (await supabase.from('incubes').select('*').eq('auth_user_id', currentSession.user.id).maybeSingle()).data;
+                  }
                 }
-              }
+              } catch (_) {}
+            }
+            if (incubeProfile) {
+              const p = { ...incubeProfile, kind: 'incube' };
+              setProfile(p);
+              await updateOrgSuspension(p);
+            }
+          }
             }
           }
         }
@@ -226,11 +236,20 @@ function App() {
           setProfile(p);
           await updateOrgSuspension(p);
         } else {
-          const { data: incubeProfile } = await supabase
-            .from('incubes')
-            .select('*')
-            .eq('auth_user_id', newSession.user.id)
-            .maybeSingle();
+          let incubeProfile = (await supabase.from('incubes').select('*').eq('auth_user_id', newSession.user.id).maybeSingle()).data;
+          if (!incubeProfile) {
+            try {
+              const pending = localStorage.getItem('savana_pending_invitation');
+              if (pending) {
+                const { code, full_name } = JSON.parse(pending);
+                const { data: acceptData } = await supabase.rpc('accept_invitation', { p_code: code, p_full_name: full_name });
+                if (acceptData?.success) {
+                  localStorage.removeItem('savana_pending_invitation');
+                  incubeProfile = (await supabase.from('incubes').select('*').eq('auth_user_id', newSession.user.id).maybeSingle()).data;
+                }
+              }
+            } catch (_) {}
+          }
           if (incubeProfile) {
             const p = { ...incubeProfile, kind: 'incube' };
             setProfile(p);

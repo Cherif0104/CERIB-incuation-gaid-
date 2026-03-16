@@ -575,16 +575,25 @@ function AdminOrgModulesPage() {
                     </label>
                     <label className="block">
                       <span className="text-xs font-medium text-cerip-forest/80">Formateur / Entraîneur (obligatoire)</span>
-                      <select
-                        value={form.formateur_id}
-                        onChange={(e) => setForm((f) => ({ ...f, formateur_id: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
-                      >
-                        <option value="">Sélectionner un formateur</option>
-                        {coachs.map((c) => (
-                          <option key={c.id} value={c.id}>{c.full_name || c.email}</option>
-                        ))}
-                      </select>
+                      <div className="mt-1 flex gap-2">
+                        <select
+                          value={form.formateur_id}
+                          onChange={(e) => setForm((f) => ({ ...f, formateur_id: e.target.value }))}
+                          className="flex-1 rounded-lg border border-cerip-forest/20 px-3 py-2 text-sm text-cerip-forest focus:ring-2 focus:ring-cerip-lime"
+                        >
+                          <option value="">Sélectionner un formateur</option>
+                          {coachs.map((c) => (
+                            <option key={c.id} value={c.id}>{c.full_name || c.email}</option>
+                          ))}
+                        </select>
+                        <Link
+                          to="/admin-org/coachs"
+                          className="shrink-0 px-3 py-2 rounded-lg text-xs font-medium bg-cerip-forest/10 text-cerip-forest hover:bg-cerip-forest/20 transition"
+                        >
+                          Créer un formateur
+                        </Link>
+                      </div>
+                      <p className="text-xs text-cerip-forest/60 mt-0.5">Pas de formateur ? Créez-en un puis revenez ici.</p>
                     </label>
                   </>
                 )}
